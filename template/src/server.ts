@@ -3,4 +3,4 @@ import { app } from "./app.ts";
 
 const port = Number(process.env.PORT ?? 3000);
 serve({ fetch: app.fetch, port });
-console.log(`listening on :${port}`);
+console.info(`listening on :${port}`);

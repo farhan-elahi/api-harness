@@ -19,7 +19,7 @@ export const examples = sqliteTable("examples", {
 
 const Example = z.object({ id: z.string(), name: z.string() });
 const ExampleCreate = z.object({ name: z.string().min(1).max(120) });
-const toExample = (r: typeof examples.$inferSelect): z.infer<typeof Example> => ({ id: r.id, name: r.name });
+const toExample = (r: Pick<typeof examples.$inferSelect, "id" | "name">): z.infer<typeof Example> => ({ id: r.id, name: r.name });
 
 export const examplesRouter = new Hono<AppEnv>();
 
@@ -27,7 +27,7 @@ examplesRouter.get("/", validate("query", cursorQuery), (c) => {
   const { cursor, limit } = c.req.valid("query");
   const after = decodeCursor(cursor);
   const rows = db
-    .select()
+    .select({ id: examples.id, name: examples.name })
     .from(examples)
     .where(and(eq(examples.workspaceId, c.get("user").workspaceId), after ? gt(examples.id, after) : undefined))
     .orderBy(asc(examples.id))

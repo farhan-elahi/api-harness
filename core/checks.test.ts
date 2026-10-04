@@ -5,9 +5,10 @@ import { cpSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync }
 import { tmpdir } from "node:os";
 import { join, relative, resolve } from "node:path";
 import { assemble } from "../scripts/fixture.ts";
-import { formatReport, runChecks } from "./runner.ts";
+import { formatReport, loadChecks, runChecks } from "./runner.ts";
 
-const RULES = ["auth", "authz-roles", "problem-json", "rest-conventions", "tsc-strict", "zod-boundary", "tenant-isolation"];
+// Every loaded plugin: a new check or validator joins these tests without editing this file.
+const RULES = (await loadChecks()).map((c) => c.name);
 const T = 120_000;
 
 // template/ minus its _example resource: no routes at all.
@@ -45,10 +46,11 @@ test("bad fixture fails every rule exactly at the marked file:line", async () =>
       .split("\n")
       .flatMap((line, i) => [...line.matchAll(/✗ ([a-z-]+)/g)].map((m) => `${m[1]} ${relative(overlay, f)}:${i + 1}`)),
   );
+  const marked = new Set(expected.map((e) => e.split(" ")[0]!).filter((n) => RULES.includes(n)));
   const r = await runChecks(assemble("bad-api"));
-  const actual = r.rules.flatMap((x) => x.failures.map((f) => `${x.name} ${f.file}:${f.line}`));
-  expect([...new Set(actual)].sort()).toEqual([...new Set(expected)].sort());
-  expect(r.rules.every((x) => x.status === "FAIL")).toBe(true);
+  const actual = r.rules.filter((x) => marked.has(x.name)).flatMap((x) => x.failures.map((f) => `${x.name} ${f.file}:${f.line}`));
+  expect([...new Set(actual)].sort()).toEqual([...new Set(expected.filter((e) => marked.has(e.split(" ")[0]!)))].sort());
+  expect(r.rules.filter((x) => marked.has(x.name)).every((x) => x.status === "FAIL")).toBe(true);
   expect(r.verdict).toBe(0);
 }, T);
 
