@@ -45,9 +45,13 @@ export async function run(opts: RunOptions) {
   const ctx = (turn: number, extra: Partial<HookContext> = {}): HookContext => ({ root, runDir, task: task.fields, turn, usage: { ...usage }, limits, ...extra });
   let final = "";
   let failure = "";
-  // Runs hooks at a point; logs any block/stop. Returns the block reason, or sets `failure` on stop.
+  // Runs hooks at a point; logs any block/stop/note. Returns the block reason, or sets `failure` on stop.
+  let notes = "";
   const gate = async (point: HookPoint, c: HookContext) => {
-    const v = await runHooks(hooks, point, c);
+    const run = await runHooks(hooks, point, c);
+    for (const n of run.notes) log({ turn: c.turn, hook: n.hook, point, tool: c.call?.name, note: n.note });
+    notes = run.notes.map((n) => n.note).join("\n");
+    const v = run.verdict;
     if (!v) return undefined;
     log({ turn: c.turn, hook: v.hook, point, tool: c.call?.name, ...(v.block !== undefined ? { block: v.block } : { stop: v.stop }) });
     console.log(`  ${v.block !== undefined ? "blocked" : "stopped"} by ${v.hook}`);
@@ -95,7 +99,8 @@ export async function run(opts: RunOptions) {
         r = { id: c.id, output: (e as Error).message, isError: true };
       }
       const after = await gate("afterTool", ctx(turn, { call: c, output: r.output }));
-      results.push(after ? { id: c.id, output: `${r.output}\n${after}`, isError: true } : r);
+      const output = [r.output, notes, after].filter(Boolean).join("\n");
+      results.push(after ? { id: c.id, output, isError: true } : { ...r, output });
     }
     messages.push({ role: "tool", results });
     log({ turn, results });

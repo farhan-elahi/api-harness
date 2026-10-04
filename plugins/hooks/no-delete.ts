@@ -1,15 +1,27 @@
 // Existing files can't be deleted or emptied. In brownfield (task mode: change), rewrites can't drop exports or routes.
 import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { Project } from "ts-morph";
-import { allow, block, defineHook, inRoot } from "../../core/sdk.ts";
+import { allow, block, defineHook, inRoot, Unproven } from "../../core/sdk.ts";
+import { hono } from "../checks/_hono.ts";
 
 const DELETING = /delete|remove|unlink|rm|rename|move/i;
 
 const exportsOf = (src: string) =>
   new Set(new Project({ useInMemoryFileSystem: true }).createSourceFile("f.ts", src).getExportedDeclarations().keys());
-// NOTE: route literals by regex (app.get("/x") / router.post('/x')); dynamic paths aren't seen.
-const routesOf = (src: string) =>
-  new Set([...src.matchAll(/\.(get|post|put|patch|delete)\(\s*["'`]([^"'`]+)["'`]/g)].map((m) => `${m[1]!.toUpperCase()} ${m[2]}`));
+// Every Hono route (METHOD /full/path) in the project, optionally with one file's text swapped in.
+function routesOf(root: string, file: string, text?: string): Set<string> {
+  const tsconfig = join(root, "tsconfig.json");
+  if (!existsSync(tsconfig)) return new Set();
+  const p = new Project({ tsConfigFilePath: tsconfig });
+  if (text !== undefined) p.createSourceFile(file, text, { overwrite: true });
+  try {
+    return new Set(hono(p).routes.map((r) => `${r.method.toUpperCase()} ${r.path}`));
+  } catch (e) {
+    if (e instanceof Unproven) return new Set(); // no Hono app: nothing to protect
+    throw e;
+  }
+}
 
 export default defineHook({
   name: "no-delete",
@@ -30,7 +42,7 @@ export default defineHook({
     if (prev.trim() && !next.trim()) return block(`${p} exists; emptying it is not allowed`);
     if (task.mode !== "change" || !/\.tsx?$/.test(p)) return allow;
     const keep = (a: Set<string>, b: Set<string>) => [...a].filter((x) => !b.has(x));
-    const lost = [...keep(exportsOf(prev), exportsOf(next)).map((e) => `export ${e}`), ...keep(routesOf(prev), routesOf(next)).map((r) => `route ${r}`)];
+    const lost = [...keep(exportsOf(prev), exportsOf(next)).map((e) => `export ${e}`), ...keep(routesOf(root, abs), routesOf(root, abs, next)).map((r) => `route ${r}`)];
     return lost.length ? block(`${p}: existing API must keep working; removed ${lost.join(", ")}`) : allow;
   },
 });

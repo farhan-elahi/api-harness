@@ -1,0 +1,11 @@
+# Smallest real API task: one tenant-scoped resource, every gate on.
+mode: create
+resource: notes
+tenancy: { column: workspaceId }
+fields:
+  title: { type: string, min: 1, max: 200 }
+  body: { type: string, optional: true }
+behaviours:
+  - create, list (cursor paginated), get, delete
+  - titles are unique per workspace (409 on duplicate)
+  - viewers can read, members can create, only owners can delete

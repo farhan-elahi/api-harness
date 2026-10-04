@@ -1,27 +1,31 @@
-// Observed red: src/**/<name>.ts can't be written until test/<name>.test.ts exists and the harness ran it and saw it fail.
-// The red run is recorded in runs/<id>/tdd-red.jsonl; later writes to the same source pass.
+// Observed red: src/** can't be written until the harness has seen a test fail since the last all-green test run.
+// Watches run_tests results. Each red (and each green, which resets) is appended to runs/<id>/tdd-red.jsonl.
 import { appendFileSync, existsSync, readFileSync } from "node:fs";
-import { basename, join } from "node:path";
-import { runTests } from "../../core/runner.ts";
+import { join } from "node:path";
 import { allow, block, defineHook } from "../../core/sdk.ts";
 
-const SOURCE = /^src\/(.+\/)?([^/]+)\.ts$/;
+const LOG = "tdd-red.jsonl";
+const isSource = (p: string) => /^src\/.+\.ts$/.test(p) && !/\.(test|d)\.ts$/.test(p);
+
+// Latest observation in this run: red | green | none.
+function lastObserved(runDir: string): "red" | "green" | "none" {
+  const f = join(runDir, LOG);
+  const last = existsSync(f) ? readFileSync(f, "utf8").trim().split("\n").at(-1) : undefined;
+  return last ? (JSON.parse(last).status as "red" | "green") : "none";
+}
 
 export default defineHook({
   name: "tdd-gate",
-  beforeTool: ({ call, root, runDir }) => {
+  beforeTool: ({ call, runDir }) => {
     const p = typeof call?.input.path === "string" && "content" in call.input ? call.input.path.replace(/^\.\//, "") : "";
-    const m = p.match(SOURCE);
-    if (!m || p.endsWith(".test.ts") || p.endsWith(".d.ts")) return allow;
-    const log = join(runDir, "tdd-red.jsonl");
-    if (existsSync(log) && readFileSync(log, "utf8").split("\n").some((l) => l && JSON.parse(l).source === p)) return allow;
-
-    const test = `test/${basename(m[2]!)}.test.ts`;
-    if (!existsSync(join(root, test))) return block(`write ${test} first: a failing test must exist before ${p}`);
-    const r = runTests(root, [test]);
-    if (r.ok) return block(`${test} already passes, so it does not prove ${p}'s change. Make it fail first.`);
-    if (!r.failed.includes(test)) return block(`could not observe ${test} failing: ${r.failures.join("; ")}`);
-    appendFileSync(log, JSON.stringify({ source: p, test, at: new Date().toISOString(), failures: r.failures }) + "\n");
+    if (!isSource(p) || lastObserved(runDir) === "red") return allow;
+    return block(`no failing test observed since the last green run. Write a test for ${p}, run_tests, and see it fail first.`);
+  },
+  afterTool: ({ call, output, runDir }) => {
+    if (call?.name !== "run_tests" || !output) return allow;
+    const failures = output.split("\n").filter((l) => l.startsWith("FAIL "));
+    const status = failures.length ? "red" : output.startsWith("pass") ? "green" : undefined; // UNPROVEN = neither
+    if (status) appendFileSync(join(runDir, LOG), JSON.stringify({ status, at: new Date().toISOString(), files: call.input.files ?? "all", failures }) + "\n");
     return allow;
   },
 });

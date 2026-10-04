@@ -36,5 +36,5 @@ if (!run("bun", ["run", "typecheck"])) fail("typecheck failed");
 console.log(`
 ✔ Setup complete. Next:
   1. Put your API key(s) in .env (ANTHROPIC_API_KEY for --driver claude).
-  2. bun harness run tasks/hello.yaml --driver claude
+  2. bun harness run tasks/notes.yaml --driver claude
   3. Output lands in generated/<task>/, logs in runs/<id>/.`);
