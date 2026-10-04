@@ -10,7 +10,7 @@ openai:
   module: openai-compatible.ts
   key_env: OPENAI_API_KEY
   model: gpt-5.5
-  reasoning_effort: low
+  reasoning_effort: none # chat/completions rejects function tools with any other effort on this model
 
 # Same driver, other OpenAI-compatible providers: add the key to .env and run --driver <name>.
 deepseek:
