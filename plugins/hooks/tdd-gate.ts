@@ -17,10 +17,10 @@ function lastObserved(runDir: string): "red" | "green" | "none" {
 
 export default defineHook({
   name: "tdd-gate",
-  beforeTool: ({ call, runDir }) => {
+  beforeTool: ({ call, runDir, task }) => {
     const p = isWrite(call) ? String(call!.input.path).replace(/^\.\//, "") : "";
     if (!isSource(p) || lastObserved(runDir) === "red") return allow;
-    return block(`no failing test observed since the last green run. Write a test for ${p}, run_tests, and see it fail first.`);
+    return block(`Write a failing test first. Next: create test/${String(task.resource ?? "feature")}.test.ts → run_tests → see it fail → then edit src/.`);
   },
   afterTool: ({ call, output, runDir }) => {
     if (call?.name !== "run_tests" || !output) return allow;

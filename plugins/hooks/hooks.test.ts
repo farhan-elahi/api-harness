@@ -141,7 +141,7 @@ test("edit_file: exact single match only; goes through the same hooks as write_f
   const call = (input: Record<string, unknown>): ToolCall => ({ id: "1", name: "edit_file", input });
   expect(before(noDelete, ctx(root, { call: call({ path: "a.ts", old: "const a = 1;\nconst b = 2;\n", new: "" }) }))).toMatchObject({ block: expect.stringContaining("emptying") });
   expect(before(pathGuard, ctx(root, { call: call({ path: ".env", old: "a", new: "b" }) }))).toMatchObject({ block: expect.any(String) });
-  expect(before(tddGate, ctx(root, { call: call({ path: "src/x.ts", old: "a", new: "b" }) }))).toMatchObject({ block: expect.stringContaining("no failing test") });
+  expect(before(tddGate, ctx(root, { call: call({ path: "src/x.ts", old: "a", new: "b" }) }))).toMatchObject({ block: expect.stringContaining("Write a failing test first. Next: create test/") });
 });
 
 test("read-loop-guard: Next line follows disk + run state", () => {
@@ -152,7 +152,7 @@ test("read-loop-guard: Next line follows disk + run state", () => {
   mkdirSync(join(root, "test"));
   writeFileSync(join(root, "test/notes.test.ts"), "");
   expect(nextStep(root, task, false, m)).toBe("Next: run_tests");
-  expect(nextStep(root, task, true, m)).toBe("Next: implement in src/ with edit_file/write_file");
+  expect(nextStep(root, task, true, m)).toBe("Next: write src/routes/notes.ts, add the table to src/db/schema.ts and its CREATE TABLE to src/db/migrations.ts, mount it in src/app.ts. Then run_tests. Failing: x");
   expect(nextStep(root, task, true, { ...m, testsOk: true })).toBe("Next: fix auth  FAIL  src/a.ts:3 no auth");
 });
 
@@ -161,9 +161,31 @@ test("read-loop-guard: blocks reads after 5 turns with no write/edit/run_tests; 
   const c = ctx(root, { task: { resource: "notes" } });
   const read = (turn: number, name = "read_file") => readLoopGuard.beforeTool!({ ...c, turn, call: { id: "1", name, input: { path: "a.ts" } } });
   for (let t = 1; t <= 5; t++) expect(await read(t)).toEqual({ allow: true });
-  for (const name of ["read_file", "list_files", "get_route"]) expect(await read(6, name)).toEqual({ block: "Stop reading. Next: write test/notes.test.ts" });
+  for (const name of ["read_file", "list_files", "get_route"]) expect(await read(6, name)).toEqual({ block: "Stop reading. You already read these files. Next: write test/notes.test.ts" });
   expect(await readLoopGuard.beforeTool!({ ...c, turn: 6, call: write("test/notes.test.ts") })).toEqual({ allow: true }); // writes aren't blocked
   readLoopGuard.afterTool!({ ...c, turn: 6, call: write("test/notes.test.ts"), output: "wrote" });
   expect(await read(7)).toEqual({ allow: true });
   expect(await read(12)).toHaveProperty("block");
 });
+
+test("read-loop-guard (fake driver): after a red, the Next line names src/routes/<resource>.ts and _example.ts", async () => {
+  const { scripted } = await import("../../drivers/fake.ts");
+  const { run } = await import("../../core/loop.ts");
+  const root = assemble("good-api");
+  const task = join(mkdtempSync(join(tmpdir(), "harness-task-")), "widgets.yaml");
+  writeFileSync(task, "mode: change\nresource: widgets\nchange: add widgets\n");
+  const t = `import { expect, it } from "vitest";\nimport { as } from "./helpers.ts";\nit("creates a widget", async () => expect((await as("w", "owner")("POST", "/v1/widgets", { name: "n" })).status).toBe(201));\n`;
+  const rd = (id: string) => ({ id, name: "read_file", input: { path: "src/app.ts" } });
+  const d = scripted([
+    { text: "", toolCalls: [{ id: "1", name: "write_file", input: { path: "test/widgets.test.ts", content: t } }] },
+    { text: "", toolCalls: [{ id: "2", name: "run_tests", input: { files: ["test/widgets.test.ts"] } }] },
+    ...["3", "4", "5"].map((id) => ({ text: "", toolCalls: [rd(id)] })),
+    { text: "done", toolCalls: [] },
+  ]);
+  const r = await run({ task, driver: d, repo: root, hooks: [readLoopGuard], tokensDir: mkdtempSync(join(tmpdir(), "harness-tokens-")) });
+  const states = readFileSync(join("runs", r.run_id, "transcript.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l)).filter((e) => e.state);
+  const next = states.at(-1)!.state.split("\n").find((l: string) => l.startsWith("Next:"));
+  expect(next).toContain("src/routes/widgets.ts");
+  expect(next).toContain("src/routes/_example.ts");
+  expect(next).toContain("creates a widget");
+}, 120_000);

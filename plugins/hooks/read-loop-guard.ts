@@ -14,10 +14,15 @@ const runs = new Map<string, { progress: number; red: boolean }>();
 const of = (runDir: string) => runs.get(runDir) ?? runs.set(runDir, { progress: 0, red: false }).get(runDir)!;
 
 export function nextStep(root: string, task: Record<string, unknown>, red: boolean, m: Measured): string {
-  const test = `test/${String(task.resource ?? "feature")}.test.ts`;
+  const r = String(task.resource ?? "feature");
+  const test = `test/${r}.test.ts`;
   if (!existsSync(join(root, test))) return `Next: write ${test}`;
   if (!red) return "Next: run_tests";
-  if (!m.testsOk) return "Next: implement in src/ with edit_file/write_file";
+  if (!m.testsOk) {
+    const example = existsSync(join(root, "src/routes/_example.ts")) ? " by copying the pattern in src/routes/_example.ts (schema + table + routes)" : "";
+    const failing = m.testFailures.slice(0, 3).map((f) => f.replace(/^FAIL\s+/, "").trim()).join("; ");
+    return `Next: write src/routes/${r}.ts${example}, add the table to src/db/schema.ts and its CREATE TABLE to src/db/migrations.ts, mount it in src/app.ts. Then run_tests.${failing ? ` Failing: ${failing}` : ""}`;
+  }
   if (m.verdict < 100) return `Next: fix ${m.failingChecks[0]?.trim() ?? `checks at ${m.verdict}%`}`;
   return "Next: reply with a one-line summary to finish";
 }
@@ -34,7 +39,7 @@ export default defineHook({
   beforeTool: async ({ call, root, runDir, task, turn }) => {
     const s = of(runDir);
     if (!call || !isRead(call.name) || turn - s.progress <= READ_TURNS) return allow;
-    return block(`Stop reading. ${nextStep(root, task, s.red, await measure(root, task))}`);
+    return block(`Stop reading. You already read these files. ${nextStep(root, task, s.red, await measure(root, task))}`);
   },
   afterTool: ({ call, output, runDir, turn }) => {
     if (!call || !PROGRESS.has(call.name)) return allow;

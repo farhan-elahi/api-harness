@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-// harness run <task> --driver <name> [--repo <path>] [--max-turns N] [--max-tokens N] [--baseline | --with-baseline] [--no-ship]
+// harness run <task> --driver <name> [--repo <path>] [--max-turns N] [--max-tokens N] [--baseline | --with-baseline [--baseline-turns N]] [--no-ship]
 // harness check --api <dir> [--task <file>]
 import { basename, dirname, resolve } from "node:path";
 import { parseArgs } from "node:util";
@@ -11,12 +11,12 @@ import { assertClean, ship, stripExample } from "./ship.ts";
 import { loadTask } from "./task.ts";
 
 const USAGE = `usage:
-  harness run <task-file> --driver <name> [--repo <path>] [--max-turns N] [--max-tokens N] [--baseline | --with-baseline] [--no-ship]
+  harness run <task-file> --driver <name> [--repo <path>] [--max-turns N] [--max-tokens N] [--baseline | --with-baseline [--baseline-turns N]] [--no-ship]
   harness check --api <dir> [--task <file>]`;
 
 const { positionals, values } = parseArgs({
   allowPositionals: true,
-  options: { driver: { type: "string" }, repo: { type: "string" }, "max-turns": { type: "string" }, "max-tokens": { type: "string" }, baseline: { type: "boolean" }, "with-baseline": { type: "boolean" }, api: { type: "string" }, task: { type: "string" }, "no-ship": { type: "boolean" } },
+  options: { driver: { type: "string" }, repo: { type: "string" }, "max-turns": { type: "string" }, "max-tokens": { type: "string" }, baseline: { type: "boolean" }, "with-baseline": { type: "boolean" }, api: { type: "string" }, task: { type: "string" }, "no-ship": { type: "boolean" }, "baseline-turns": { type: "string" } },
 });
 const [cmd, task] = positionals;
 
@@ -33,7 +33,7 @@ try {
     process.exit(2);
   }
   if (values.baseline && values["with-baseline"]) throw new Error("use --baseline or --with-baseline, not both");
-  const opts = { task, driver: values.driver, repo: values.repo, maxTurns: Number(values["max-turns"]) || undefined, maxTokens: Number(values["max-tokens"]) || undefined };
+  const opts = { task, driver: values.driver, repo: values.repo, maxTurns: Number(values["max-turns"]) || undefined, maxTokens: Number(values["max-tokens"]) || undefined, baselineTurns: Number(values["baseline-turns"]) || undefined };
   const t = loadTask(task);
   assertClean(rootOf(t, values.repo));
   if (t.fields.mode === "create") seed(rootOf(t, values.repo));
@@ -57,8 +57,9 @@ try {
     const { actual, baseline, report } = await runWithBaseline(opts);
     say(baseline);
     say(actual);
-    console.log(`reduction: ${report.reduction_pct}% (${report.baseline?.total_input_tokens} -> ${report.total_input_tokens} input tokens)`);
-    process.exit(baseline.completed && (await deliver(actual)) ? 0 : 1);
+    const sum = (k: "baseline_input_tokens" | "actual_input_tokens") => report.comparison!.reduce((a, r) => a + (r[k] ?? 0), 0);
+    console.log(`reduction: ${report.reduction_pct}% over turns 1..${report.comparison!.length} (${sum("baseline_input_tokens")} -> ${sum("actual_input_tokens")} input tokens; baseline ${baseline.completed ? "completed" : "capped"})`);
+    process.exit((await deliver(actual)) ? 0 : 1); // green + ship follow the actual run; the baseline is only a measurement
   }
   const r = await run({ ...opts, mode: values.baseline ? "baseline" : "actual" });
   say(r);
