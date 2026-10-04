@@ -34,7 +34,7 @@ export async function withRetry<T>(fn: () => Promise<T>, opts: { baseMs?: number
       const status = statusOf(e);
       const transient = (status !== undefined && RETRY.has(status)) || isNetwork(e);
       if (!transient) throw err;
-      if (attempt >= ATTEMPTS) throw new Error(`provider still failing after ${ATTEMPTS} attempts (${status ?? "network error"}): ${oneLine(e)}`);
+      if (attempt >= ATTEMPTS) throw new Error(`provider still failing after ${ATTEMPTS} attempts (${status ?? "network error"}): ${String(e.message ?? e)}`); // full text; the CLI redacts
       const waitMs = Math.round(retryAfterMs(e) ?? base * 2 ** (attempt - 1) * (0.75 + Math.random() * 0.5));
       retries.push({ attempt, status, waitMs, error: oneLine(e) });
       console.log(`  retry ${attempt}/${ATTEMPTS - 1} after ${status ?? "network error"}, waiting ${waitMs}ms`);

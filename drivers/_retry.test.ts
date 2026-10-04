@@ -50,7 +50,7 @@ for (const d of ["openai", "claude"] as const) {
     models.length = 0;
     const err = await send(d).catch((e: Error) => e);
     expect((err as Error).message).toMatch(/^provider still failing after 5 attempts \(503\): /);
-    expect((err as Error).message).not.toContain("\n");
+    expect((err as Error).message).toContain("fake 503"); // full provider message, not truncated
     expect(models).toHaveLength(5);
   });
 }
@@ -58,7 +58,7 @@ for (const d of ["openai", "claude"] as const) {
 test("backoff ~2s/4s/8s/16s with jitter; Retry-After wins; network errors retried", async () => {
   const waits: number[] = [];
   const sleep = async (ms: number) => void waits.push(ms);
-  const fail = (status?: number, headers?: Record<string, string>) => Object.assign(new Error(status ? `HTTP ${status}` : "Connection error."), { status, headers });
+  const fail = (status?: number, headers?: Record<string, string>, msg?: string) => Object.assign(new Error(msg ?? (status ? `HTTP ${status}` : "Connection error.")), { status, headers });
   await withRetry(async () => { throw fail(529); }, { sleep }).catch(() => {});
   expect(waits).toHaveLength(4);
   waits.forEach((w, i) => {
@@ -71,6 +71,10 @@ test("backoff ~2s/4s/8s/16s with jitter; Retry-After wins; network errors retrie
   const r = await withRetry(async () => (n++ ? "ok" : Promise.reject(fail(429, { "retry-after": "7" }))), { sleep });
   expect(r.value).toBe("ok");
   expect(waits).toEqual([7000]);
+
+  n = 0;
+  const long = await withRetry(async () => { throw fail(503, undefined, "first line\n* Quota exceeded for metric X, limit: 0"); }, { sleep }).catch((e: Error) => e.message);
+  expect(long).toContain("first line\n* Quota exceeded for metric X, limit: 0");
 
   n = 0;
   const net = await withRetry(async () => (n++ ? "ok" : Promise.reject(fail())), { sleep });
