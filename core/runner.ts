@@ -75,14 +75,14 @@ export function formatReport(r: Report): string {
 }
 
 // Runs the API's own Vitest suite (optionally just some files). Short result: one line per failure.
-export type TestRun = { ok: boolean; total: number; failed: string[]; failures: string[] };
+export type TestRun = { ok: boolean; total: number; failed: string[]; failures: string[]; passed: string[] }; // passed: "file > test name"
 export function runTests(apiDir: string, files: string[] = []): TestRun {
   const dir = existsSync(apiDir) ? realpathSync(apiDir) : resolve(apiDir); // vitest reports real paths (/var -> /private/var)
   const vitest = join(dir, "node_modules/.bin/vitest");
-  if (!existsSync(vitest)) return { ok: false, total: 0, failed: [], failures: ["UNPROVEN no vitest in node_modules/.bin"] };
+  if (!existsSync(vitest)) return { ok: false, total: 0, failed: [], failures: ["UNPROVEN no vitest in node_modules/.bin"], passed: [] };
   const out = join(mkdtempSync(join(tmpdir(), "harness-vitest-")), "r.json");
   const run = spawnSync(vitest, ["run", "--reporter=json", `--outputFile=${out}`, ...files], { cwd: dir, encoding: "utf8", timeout: 300_000 });
-  if (!existsSync(out)) return { ok: false, total: 0, failed: [], failures: [`UNPROVEN vitest did not report: ${(run.stderr || run.stdout).trim().split("\n")[0]}`] };
+  if (!existsSync(out)) return { ok: false, total: 0, failed: [], failures: [`UNPROVEN vitest did not report: ${(run.stderr || run.stdout).trim().split("\n")[0]}`], passed: [] };
   type R = { numTotalTests: number; testResults: { name: string; status: string; message: string; assertionResults: { fullName: string; status: string; failureMessages: string[] }[] }[] };
   const r = JSON.parse(readFileSync(out, "utf8")) as R;
   const first = (s: string | undefined) => (s ?? "").replace(/\x1b\[[0-9;]*m/g, "").trim().split("\n")[0];
@@ -93,5 +93,6 @@ export function runTests(apiDir: string, files: string[] = []): TestRun {
     return asserts.length ? asserts : t.status === "failed" ? [`FAIL ${file}: ${first(t.message)}`] : [];
   });
   if (r.numTotalTests === 0 && !failures.length) failures.push("UNPROVEN no tests ran");
-  return { ok: failures.length === 0, total: r.numTotalTests, failed, failures };
+  const passed = r.testResults.flatMap((t) => t.assertionResults.filter((a) => a.status === "passed").map((a) => `${relative(dir, t.name)} > ${a.fullName}`));
+  return { ok: failures.length === 0, total: r.numTotalTests, failed, failures, passed };
 }
