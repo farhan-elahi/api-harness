@@ -1,0 +1,90 @@
+bun install v1.4.2 (744846f84)
+
++ @types/better-sqlite3@9.6.0
++ @types/node@26.6.4
++ tsx@4.23.15
++ typescript@5.9.3
++ vitest@5.0.3
++ @hono/node-server@2.1.3
++ better-sqlite3@13.0.3
++ drizzle-orm@0.45.3
++ hono@4.13.13
++ zod@4.6.5
+
+49 packages installed [1.77s]
+fixed cost [baseline]: system 700 + tools 248 = 948 tokens (est.)
+turn 1: in=4709 out=70 read_file, read_file, read_file
+turn 2: in=5063 out=1127 write_file
+  blocked by tdd-gate
+turn 3: in=6236 out=674 write_file
+turn 4: in=7526 out=22 run_tests
+turn 5: in=7640 out=1283 write_file, write_file
+turn 6: in=10025 out=267 edit_file, edit_file, write_file
+turn 7: in=10396 out=22 run_tests
+turn 8: in=10434 out=13 run_tests
+  stopped by budget-guard
+fixed cost [actual]: system 599 + tools 367 = 966 tokens (est.)
+turn 1: in=1042 out=99 read_file, read_file, get_schema, read_file, read_file
+turn 2: in=2697 out=70 read_file, read_file, read_file
+turn 3: in=3294 out=1014 write_file
+  blocked by tdd-gate
+turn 4: in=4354 out=620 write_file
+turn 5: in=3478 out=22 run_tests
+turn 6: in=3146 out=21 read_file
+turn 7: in=2734 out=20 read_file
+turn 8: in=2149 out=21 read_file
+turn 9: in=2115 out=19 read_file
+turn 10: in=1628 out=21 read_file
+turn 11: in=2219 out=69 read_file, read_file, list_files
+  blocked by read-loop-guard
+  blocked by read-loop-guard
+  blocked by read-loop-guard
+turn 12: in=2710 out=21 read_file
+  blocked by read-loop-guard
+turn 13: in=2745 out=17 get_schema
+  blocked by read-loop-guard
+turn 14: in=2289 out=1158 write_file
+turn 15: in=3096 out=28 read_file
+turn 16: in=2965 out=171 write_file
+turn 17: in=2964 out=29 read_file
+turn 18: in=1852 out=140 write_file
+turn 19: in=1948 out=94 read_file, read_file, read_file
+turn 20: in=2921 out=96 read_file, read_file, read_file
+turn 21: in=5182 out=27 read_file
+turn 22: in=5237 out=27 read_file
+turn 23: in=4241 out=29 read_file
+turn 24: in=2539 out=122 read_file, read_file, read_file, read_file
+  blocked by read-loop-guard
+  blocked by read-loop-guard
+  blocked by read-loop-guard
+  blocked by read-loop-guard
+turn 25: in=3121 out=957 write_file
+turn 26: in=3954 out=276 edit_file
+turn 27: in=3614 out=128 edit_file
+turn 28: in=2983 out=17 get_schema
+turn 29: in=2114 out=21 read_file
+turn 30: in=2734 out=88 read_file, read_file, read_file, read_file
+turn 31: in=3902 out=21 read_file
+turn 32: in=4374 out=70 edit_file
+turn 33: in=3524 out=62 edit_file
+turn 34: in=2196 out=21 read_file
+turn 35: in=2240 out=21 read_file
+turn 36: in=3091 out=20 read_file
+turn 37: in=3181 out=21 read_file
+turn 38: in=2680 out=21 read_file
+turn 39: in=2392 out=21 read_file
+  blocked by read-loop-guard
+turn 40: in=2421 out=1020 write_file
+  stopped by budget-guard
+
+[baseline] FAILED: budget-guard: over budget: tool calls on the last of 8 turns
+project: /var/folders/72/181378bs1znfs91r7d9x_dgw0000gn/T/harness-baseline-rBTvVE
+log: runs/2026-10-04T17-24-17_openai_notes_baseline/
+tokens: /Users/farhanelahi/Documents/api-harness/tokens/2026-10-04T17-24-17_openai_notes_baseline.json (input 62029)
+
+[actual] FAILED: budget-guard: over budget: tool calls on the last of 40 turns
+project: /Users/farhanelahi/Documents/api-harness/generated/notes
+log: runs/2026-10-04T17-25-07_openai_notes/
+tokens: /Users/farhanelahi/Documents/api-harness/tokens/2026-10-04T17-25-07_openai_notes.json (input 118066)
+reduction: 63.1% over turns 1..8 (62029 -> 22894 input tokens; baseline capped)
+exit 1

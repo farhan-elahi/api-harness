@@ -1,0 +1,59 @@
+bun install v1.4.2 (744846f84)
+
++ @types/better-sqlite3@9.6.0
++ @types/node@26.6.4
++ tsx@4.23.15
++ typescript@5.9.3
++ vitest@5.0.3
++ @hono/node-server@2.1.3
++ better-sqlite3@13.0.3
++ drizzle-orm@0.45.3
++ hono@4.13.13
++ zod@4.6.5
+
+49 packages installed [2.13s]
+fixed cost [baseline]: system 700 + tools 248 = 948 tokens (est.)
+turn 1: in=4709 out=70 read_file, read_file, read_file
+turn 2: in=5063 out=1082 write_file
+  blocked by tdd-gate
+turn 3: in=6197 out=754 write_file
+turn 4: in=7637 out=22 run_tests
+turn 5: in=7766 out=1299 write_file, write_file, write_file
+turn 6: in=10240 out=70 edit_file
+turn 7: in=10369 out=62 edit_file
+turn 8: in=10463 out=13 run_tests
+  stopped by budget-guard
+fixed cost [actual]: system 599 + tools 367 = 966 tokens (est.)
+turn 1: in=1042 out=99 read_file, read_file, get_schema, read_file, read_file
+turn 2: in=2697 out=84 read_file, read_file, get_rule, get_rule
+turn 3: in=3279 out=1016 write_file
+  blocked by tdd-gate
+turn 4: in=4347 out=727 write_file
+turn 5: in=3582 out=22 run_tests
+turn 6: in=3152 out=88 read_file, read_file, read_file, read_file
+turn 7: in=3206 out=20 read_file
+turn 8: in=2593 out=21 read_file
+turn 9: in=3175 out=18 get_rule
+turn 10: in=2156 out=88 read_file, read_file, read_file, read_file
+turn 11: in=3142 out=1031 write_file
+turn 12: in=3733 out=176 write_file
+turn 13: in=3856 out=118 write_file
+turn 14: in=2903 out=19 read_file
+turn 15: in=1949 out=21 read_file
+turn 16: in=2710 out=70 edit_file
+turn 17: in=2658 out=62 edit_file
+turn 18: in=2295 out=5 (no tools)
+
+[baseline] FAILED: budget-guard: over budget: tool calls on the last of 8 turns
+project: /var/folders/72/181378bs1znfs91r7d9x_dgw0000gn/T/harness-baseline-405rDs
+log: runs/2026-10-04T17-43-47_openai_notes_baseline/
+tokens: /Users/farhanelahi/Documents/api-harness/tokens/2026-10-04T17-43-47_openai_notes_baseline.json (input 62444)
+
+[actual] done: Done.
+project: /Users/farhanelahi/Documents/api-harness/generated/notes
+log: runs/2026-10-04T17-44-39_openai_notes/
+tokens: /Users/farhanelahi/Documents/api-harness/tokens/2026-10-04T17-44-39_openai_notes.json (input 52475)
+reduction: 61.7% over turns 1..8 (62444 -> 23898 input tokens; baseline capped)
+example removed: src/app.ts, src/db/migrations.ts, src/routes/_example.ts, test/_example.test.ts
+ship: PR opened: https://github.com/farhan-elahi/api-harness/pull/14
+exit 0

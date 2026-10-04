@@ -1,0 +1,2 @@
+{"status":"red","at":"2026-10-04T17:24:41.878Z","files":["test/notes.test.ts"],"failures":["FAIL test/notes.test.ts > /v1/notes creates, lists, gets, and deletes notes scoped to workspace: AssertionError: expected 404 to be 201 // Object.is equality","FAIL test/notes.test.ts > /v1/notes enforces title uniqueness, roles, validation, and Idempotency-Key: AssertionError: expected 404 to be 403 // Object.is equality"]}
+{"status":"green","at":"2026-10-04T17:25:04.368Z","files":["test/notes.test.ts"],"failures":[]}

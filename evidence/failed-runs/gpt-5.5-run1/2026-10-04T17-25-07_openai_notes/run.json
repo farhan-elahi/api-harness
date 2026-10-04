@@ -1,0 +1,304 @@
+{
+  "run_id": "2026-10-04T17-25-07_openai_notes",
+  "driver": "openai",
+  "task": "tasks/notes.yaml",
+  "mode": "actual",
+  "root": "/Users/farhanelahi/Documents/api-harness/generated/notes",
+  "turns": [
+    {
+      "turn": 1,
+      "input_tokens": 1042,
+      "output_tokens": 99,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    {
+      "turn": 2,
+      "input_tokens": 2697,
+      "output_tokens": 70,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    {
+      "turn": 3,
+      "input_tokens": 3294,
+      "output_tokens": 1014,
+      "cache_read_tokens": 1664,
+      "cache_write_tokens": 0
+    },
+    {
+      "turn": 4,
+      "input_tokens": 4354,
+      "output_tokens": 620,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    {
+      "turn": 5,
+      "input_tokens": 3478,
+      "output_tokens": 22,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    {
+      "turn": 6,
+      "input_tokens": 3146,
+      "output_tokens": 21,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    {
+      "turn": 7,
+      "input_tokens": 2734,
+      "output_tokens": 20,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    {
+      "turn": 8,
+      "input_tokens": 2149,
+      "output_tokens": 21,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    {
+      "turn": 9,
+      "input_tokens": 2115,
+      "output_tokens": 19,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    {
+      "turn": 10,
+      "input_tokens": 1628,
+      "output_tokens": 21,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    {
+      "turn": 11,
+      "input_tokens": 2219,
+      "output_tokens": 69,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    {
+      "turn": 12,
+      "input_tokens": 2710,
+      "output_tokens": 21,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    {
+      "turn": 13,
+      "input_tokens": 2745,
+      "output_tokens": 17,
+      "cache_read_tokens": 1664,
+      "cache_write_tokens": 0
+    },
+    {
+      "turn": 14,
+      "input_tokens": 2289,
+      "output_tokens": 1158,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    {
+      "turn": 15,
+      "input_tokens": 3096,
+      "output_tokens": 28,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    {
+      "turn": 16,
+      "input_tokens": 2965,
+      "output_tokens": 171,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    {
+      "turn": 17,
+      "input_tokens": 2964,
+      "output_tokens": 29,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    {
+      "turn": 18,
+      "input_tokens": 1852,
+      "output_tokens": 140,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    {
+      "turn": 19,
+      "input_tokens": 1948,
+      "output_tokens": 94,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    {
+      "turn": 20,
+      "input_tokens": 2921,
+      "output_tokens": 96,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    {
+      "turn": 21,
+      "input_tokens": 5182,
+      "output_tokens": 27,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    {
+      "turn": 22,
+      "input_tokens": 5237,
+      "output_tokens": 27,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    {
+      "turn": 23,
+      "input_tokens": 4241,
+      "output_tokens": 29,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    {
+      "turn": 24,
+      "input_tokens": 2539,
+      "output_tokens": 122,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    {
+      "turn": 25,
+      "input_tokens": 3121,
+      "output_tokens": 957,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    {
+      "turn": 26,
+      "input_tokens": 3954,
+      "output_tokens": 276,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    {
+      "turn": 27,
+      "input_tokens": 3614,
+      "output_tokens": 128,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    {
+      "turn": 28,
+      "input_tokens": 2983,
+      "output_tokens": 17,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    {
+      "turn": 29,
+      "input_tokens": 2114,
+      "output_tokens": 21,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    {
+      "turn": 30,
+      "input_tokens": 2734,
+      "output_tokens": 88,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    {
+      "turn": 31,
+      "input_tokens": 3902,
+      "output_tokens": 21,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    {
+      "turn": 32,
+      "input_tokens": 4374,
+      "output_tokens": 70,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    {
+      "turn": 33,
+      "input_tokens": 3524,
+      "output_tokens": 62,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    {
+      "turn": 34,
+      "input_tokens": 2196,
+      "output_tokens": 21,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    {
+      "turn": 35,
+      "input_tokens": 2240,
+      "output_tokens": 21,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    {
+      "turn": 36,
+      "input_tokens": 3091,
+      "output_tokens": 20,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    {
+      "turn": 37,
+      "input_tokens": 3181,
+      "output_tokens": 21,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    {
+      "turn": 38,
+      "input_tokens": 2680,
+      "output_tokens": 21,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    {
+      "turn": 39,
+      "input_tokens": 2392,
+      "output_tokens": 21,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    {
+      "turn": 40,
+      "input_tokens": 2421,
+      "output_tokens": 1020,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0
+    }
+  ],
+  "usage": {
+    "input": 118066,
+    "output": 6740
+  },
+  "fixed_cost": {
+    "system": 599,
+    "tools": 367,
+    "total": 966
+  },
+  "retries": 0,
+  "final": "",
+  "status": "failed",
+  "reason": "budget-guard: over budget: tool calls on the last of 40 turns",
+  "completed": false,
+  "tokens": "/Users/farhanelahi/Documents/api-harness/tokens/2026-10-04T17-25-07_openai_notes.json"
+}
