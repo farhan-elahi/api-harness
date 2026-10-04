@@ -29,4 +29,4 @@ gemini:
   module: openai-compatible.ts
   key_env: GEMINI_API_KEY
   base_url: https://generativelanguage.googleapis.com/v1beta/openai/
-  model: gemini-2.5-flash # pinned, not the -latest alias, so runs stay reproducible
+  model: gemini-3.8-flash # pinned, not the -latest alias, so runs stay reproducible
