@@ -1,0 +1,5 @@
+# --driver <name> picks one entry. Everything vendor-specific lives in drivers/.
+claude:
+  module: claude.ts
+  model: claude-opus-5-5
+  max_tokens: 16000

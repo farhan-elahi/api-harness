@@ -1,0 +1,21 @@
+{
+  "name": "api-harness",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "5"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.131.0"
+  },
+  "bin": {
+    "harness": "core/cli.ts"
+  },
+  "scripts": {
+    "harness": "bun core/cli.ts",
+    "typecheck": "tsc --noEmit"
+  }
+}

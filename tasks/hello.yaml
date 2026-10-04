@@ -1,0 +1,5 @@
+# Smoke task: smallest thing that exercises list/read/write end to end.
+mode: create
+change: >
+  Create src/greet.ts exporting `greet(name: string): string` that returns "Hello, <name>!".
+  Then create README.md with one line describing the module.
