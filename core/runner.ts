@@ -15,6 +15,7 @@ export type RuleReport = {
   total: number;
   failures: CheckResult[];
   reason?: string;
+  rule?: string;
 };
 export type Report = { dir: string; rules: RuleReport[]; verdict: number };
 
@@ -39,10 +40,10 @@ export async function runChecks(apiDir: string, task: Record<string, unknown> = 
       return (ast = new Project({ tsConfigFilePath: tsconfig }));
     },
   };
-  const checks = [...(await loadPlugins<Check>("checks")), ...(await loadPlugins<Check>("validators"))];
+  const checks = await loadChecks();
   const rules: RuleReport[] = [];
   for (const check of checks) {
-    const base = { name: check.name, unit: check.unit, passed: 0, total: 0, failures: [] };
+    const base = { name: check.name, unit: check.unit, rule: check.rule, passed: 0, total: 0, failures: [] };
     try {
       const results = (await check.run(ctx)).map((r) => ({ ...r, file: relative(dir, resolve(dir, r.file)) }));
       if (results.length === 0) throw new Unproven(`no ${check.unit} found to check`);
@@ -58,6 +59,8 @@ export async function runChecks(apiDir: string, task: Record<string, unknown> = 
   const verdict = counted.length ? Math.floor((100 * counted.filter((r) => r.status === "pass").length) / counted.length) : 0;
   return { dir, rules, verdict };
 }
+
+export const loadChecks = async () => [...(await loadPlugins<Check>("checks")), ...(await loadPlugins<Check>("validators"))];
 
 export function formatReport(r: Report): string {
   const w = Math.max(16, ...r.rules.map((x) => x.name.length + 2));

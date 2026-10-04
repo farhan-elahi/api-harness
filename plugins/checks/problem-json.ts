@@ -9,6 +9,9 @@ const isCtx = (n: Node) => /\bContext</.test(n.getType().getText());
 export default defineCheck({
   name: "problem-json",
   unit: "error paths",
+  rule: `Every non-2xx response is RFC 7807 application/problem+json.
+Use one problem() helper whose body has type, title, status, detail and instance.
+app.onError() and app.notFound() must return problem(). Never send a status >= 400 with c.json()/c.text()/new Response(); throw or return problem() instead.`,
   run: ({ ast }) => {
     const files = appFiles(ast());
     const calls = files.flatMap((sf) => sf.getDescendantsOfKind(SyntaxKind.CallExpression));

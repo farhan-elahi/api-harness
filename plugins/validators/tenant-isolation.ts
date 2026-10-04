@@ -11,6 +11,9 @@ const RAW = new Set(["run", "all", "get", "values", "execute"]);
 export default defineCheck({
   name: "tenant-isolation",
   unit: "queries",
+  rule: `Every DB query is scoped to the caller's tenant column (task \`tenancy.column\`, default workspaceId).
+Every table declares the tenant column. Every select/update/delete has a where() that filters on <table>.<column>.
+Every insert sets the column. No raw SQL (db.run/all/get/values/execute). Relational findMany/findFirst must filter on it too.`,
   run: ({ ast, task }) => {
     const COLUMN = tenantColumn(task.tenancy);
     const files = appFiles(ast());

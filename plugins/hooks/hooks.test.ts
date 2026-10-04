@@ -110,7 +110,16 @@ test("stop-gate: allows finishing when tests + checks are green; otherwise sends
   const r = await stopGate.beforeStop!(ctx(assemble("bad-api")));
   const lines = (r as { block: string }).block.split("\n");
   expect(lines[0]).toStartWith("not done yet");
-  expect(lines.at(-1)).toBe("verdict 0%");
-  expect(lines.slice(1, -1).every((l) => /\b(FAIL|UNPROVEN)\b/.test(l))).toBe(true);
+  const v = lines.indexOf("verdict 0%");
+  expect(v).toBeGreaterThan(0);
+  expect(lines.slice(1, v).every((l) => /\b(FAIL|UNPROVEN)\b/.test(l))).toBe(true);
   expect(lines.some((l) => l.startsWith("tenant-isolation"))).toBe(true);
+}, T);
+
+test("stop-gate: rule text only for the rules that failed", async () => {
+  const r = await stopGate.beforeStop!(ctx(assemble("good-api"), { task: { tenancy: { column: "orgId" } } }));
+  const text = (r as { block: string }).block;
+  expect(text).toContain("rule tenant-isolation: Every DB query is scoped");
+  expect(text.match(/^rule /gm)).toHaveLength(1);
+  expect(text).not.toContain("rule auth:");
 }, T);

@@ -46,6 +46,8 @@ const create: DriverFactory = (cfg) => {
         usage: {
           input: u.input_tokens + (u.cache_creation_input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0),
           output: u.output_tokens,
+          cacheRead: u.cache_read_input_tokens ?? 0,
+          cacheWrite: u.cache_creation_input_tokens ?? 0,
         },
         stop: STOP[res.stop_reason ?? ""] ?? "end",
         raw: res.content,

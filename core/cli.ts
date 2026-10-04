@@ -1,19 +1,19 @@
 #!/usr/bin/env bun
-// harness run <task> --driver <name> [--repo <path>] [--max-turns N] [--max-tokens N]
+// harness run <task> --driver <name> [--repo <path>] [--max-turns N] [--max-tokens N] [--baseline | --with-baseline]
 // harness check --api <dir> [--task <file>]
 import { parseArgs } from "node:util";
-import { run } from "./loop.ts";
+import { run, runWithBaseline } from "./loop.ts";
 import { formatReport, runChecks } from "./runner.ts";
 import { redact } from "./sdk.ts";
 import { loadTask } from "./task.ts";
 
 const USAGE = `usage:
-  harness run <task-file> --driver <name> [--repo <path>] [--max-turns N] [--max-tokens N]
+  harness run <task-file> --driver <name> [--repo <path>] [--max-turns N] [--max-tokens N] [--baseline | --with-baseline]
   harness check --api <dir> [--task <file>]`;
 
 const { positionals, values } = parseArgs({
   allowPositionals: true,
-  options: { driver: { type: "string" }, repo: { type: "string" }, "max-turns": { type: "string" }, "max-tokens": { type: "string" }, api: { type: "string" }, task: { type: "string" } },
+  options: { driver: { type: "string" }, repo: { type: "string" }, "max-turns": { type: "string" }, "max-tokens": { type: "string" }, baseline: { type: "boolean" }, "with-baseline": { type: "boolean" }, api: { type: "string" }, task: { type: "string" } },
 });
 const [cmd, task] = positionals;
 
@@ -27,8 +27,19 @@ try {
     console.error(USAGE);
     process.exit(2);
   }
-  const r = await run({ task, driver: values.driver, repo: values.repo, maxTurns: Number(values["max-turns"]) || undefined, maxTokens: Number(values["max-tokens"]) || undefined });
-  console.log(redact(`\n${r.completed ? `done: ${r.final}` : `FAILED: ${r.reason}`}\nproject: ${r.root}\nlog: runs/${r.run_id}/`));
+  if (values.baseline && values["with-baseline"]) throw new Error("use --baseline or --with-baseline, not both");
+  const opts = { task, driver: values.driver, repo: values.repo, maxTurns: Number(values["max-turns"]) || undefined, maxTokens: Number(values["max-tokens"]) || undefined };
+  const say = (r: Awaited<ReturnType<typeof run>>) =>
+    console.log(redact(`\n[${r.mode}] ${r.completed ? `done: ${r.final}` : `FAILED: ${r.reason}`}\nproject: ${r.root}\nlog: runs/${r.run_id}/\ntokens: ${r.tokens} (input ${r.report.total_input_tokens})`));
+  if (values["with-baseline"]) {
+    const { actual, baseline, report } = await runWithBaseline(opts);
+    say(baseline);
+    say(actual);
+    console.log(`reduction: ${report.reduction_pct}% (${report.baseline?.total_input_tokens} -> ${report.total_input_tokens} input tokens)`);
+    process.exit(actual.completed && baseline.completed ? 0 : 1);
+  }
+  const r = await run({ ...opts, mode: values.baseline ? "baseline" : "actual" });
+  say(r);
   process.exit(r.completed ? 0 : 1);
 } catch (e) {
   console.error(redact(`error: ${(e as Error).message}`));
