@@ -1,11 +1,11 @@
 // Offline check: a scripted driver drives the real loop + real tools + real hooks, no network.
 import { test, expect } from "bun:test";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { scripted } from "../drivers/fake.ts";
 import { loadHooks } from "./hooks.ts";
-import { run } from "./loop.ts";
+import { run, seed } from "./loop.ts";
 import type { Message } from "./sdk.ts";
 
 const setup = (taskYaml = "mode: create\nwhatever: kept\n") => {
@@ -62,4 +62,14 @@ test("afterTool notes are appended to the tool result (not an error) and logged"
   expect(toolMsg(d.seen[1]!).results[0]).toEqual({ id: "1", output: "wrote a.ts (1 lines)\na.ts:1:1 TS1 boom" });
   const log = readFileSync(join("runs", r.run_id, "transcript.jsonl"), "utf8");
   expect(log).toContain('"hook":"fb","point":"afterTool","tool":"write_file","note":"a.ts:1:1 TS1 boom"');
+});
+
+test("create mode seeds from template/ without node_modules; a non-empty target refuses", () => {
+  const { dir } = setup();
+  const root = join(dir, "seeded");
+  seed(root, { install: false });
+  expect(existsSync(join(root, "package.json"))).toBe(true);
+  expect(existsSync(join(root, "src"))).toBe(true);
+  expect(existsSync(join(root, "node_modules"))).toBe(false);
+  expect(() => seed(root, { install: false })).toThrow(/not empty/);
 });
