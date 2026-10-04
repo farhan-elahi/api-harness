@@ -2,6 +2,7 @@
 // harness run <task> --driver <name> [--repo <path>] [--max-turns N]
 import { parseArgs } from "node:util";
 import { run } from "./loop.ts";
+import { redact } from "./sdk.ts";
 
 const { positionals, values } = parseArgs({
   allowPositionals: true,
@@ -15,9 +16,9 @@ if (cmd !== "run" || !task || !values.driver) {
 }
 try {
   const r = await run({ task, driver: values.driver, repo: values.repo, maxTurns: Number(values["max-turns"]) || undefined });
-  console.log(`\n${r.completed ? "done" : "stopped (turn limit)"}: ${r.final}\nproject: ${r.root}\nlog: runs/${r.run_id}/`);
+  console.log(redact(`\n${r.completed ? "done" : "stopped (turn limit)"}: ${r.final}\nproject: ${r.root}\nlog: runs/${r.run_id}/`));
   process.exit(r.completed ? 0 : 1);
 } catch (e) {
-  console.error(`error: ${(e as Error).message}`);
+  console.error(redact(`error: ${(e as Error).message}`));
   process.exit(1);
 }

@@ -2,20 +2,21 @@
   "name": "api-harness",
   "type": "module",
   "private": true,
-  "devDependencies": {
-    "@types/bun": "latest"
-  },
-  "peerDependencies": {
-    "typescript": "5"
-  },
-  "dependencies": {
-    "@anthropic-ai/sdk": "^0.131.0"
-  },
   "bin": {
     "harness": "core/cli.ts"
   },
   "scripts": {
+    "setup": "node scripts/setup.mjs",
     "harness": "bun core/cli.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "verify": "bun test && tsc --noEmit && bun scripts/check-leaks.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.131.0",
+    "openai": "^7.27.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "5"
   }
 }
