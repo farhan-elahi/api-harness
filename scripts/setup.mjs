@@ -23,6 +23,7 @@ if (existsSync("template/package.json") && !run("bun", ["install"], { cwd: "temp
 step("git / gh");
 for (const [cmd, why] of [["git", "needed to ship branches"], ["gh", "needed to open PRs"]])
   console.log(has(cmd) ? `✔ ${cmd}` : `⚠ ${cmd} not found (${why}); runs still work without it`);
+if (existsSync(".git") && run("git", ["config", "core.hooksPath", ".githooks"])) console.log("✔ pre-push hook: npm run verify");
 
 step(".env");
 if (existsSync(".env")) console.log("✔ .env exists (not touched)");

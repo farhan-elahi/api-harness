@@ -1,0 +1,3 @@
+#!/bin/sh
+# Blocks the push unless tests, typecheck and the leak check are green. Installed by `npm run setup`.
+exec npm run verify

@@ -1,0 +1,3 @@
+[test]
+# Vitest suites inside APIs (template, fixtures, generated) are run by the harness, not by bun test.
+pathIgnorePatterns = ["template/**", "fixtures/**", "generated/**", "examples/**"]
