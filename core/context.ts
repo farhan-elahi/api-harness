@@ -70,7 +70,8 @@ export function projectMap(root: string, libDir = resolve("template/src/lib")): 
     return `  ${f.replace(/\.ts$/, "")}: ${exported.map(sig).join("; ")}`;
   });
   const files = sourceFiles(root).filter((f) => !f.startsWith("src/lib/"));
-  const map = `Project files: ${files.join(", ")}\nsrc/lib helpers (import, don't rewrite):\n${sigs.join("\n")}`;
+  const example = files.includes("src/routes/_example.ts") ? "\nsrc/routes/_example.ts + test/_example.test.ts: copy this pattern" : "";
+  const map = `Project files: ${files.join(", ")}${example}\nsrc/lib helpers (import, don't rewrite):\n${sigs.join("\n")}`;
   return map.length > MAP_CHARS ? map.slice(0, MAP_CHARS - 1) + "…" : map;
 }
 

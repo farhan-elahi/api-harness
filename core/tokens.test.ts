@@ -83,6 +83,7 @@ test("actual fixed cost (system prompt + tool definitions) is under 1,000 tokens
   const r = await run({ task: taskFile(), driver: d, repo: assemble("good-api"), hooks: [], tokensDir: tmp("harness-tokens-") });
   expect(r.fixed_cost.total).toBeLessThan(1000);
   expect(d.systems[0]).toContain("function respond<S extends z.ZodType>"); // map generated from template/src/lib
+  expect(d.systems[0]).toContain("src/routes/_example.ts + test/_example.test.ts: copy this pattern");
 }, T);
 
 test("token report has the right shape, cache reads shown separately and inside input", async () => {
