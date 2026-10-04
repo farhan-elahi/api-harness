@@ -15,19 +15,20 @@ interface WidgetShape { id: string; name: string } // ✗ zod-boundary
 export const widgetsRouter = new Hono<AppEnv>();
 
 widgetsRouter.get("/", (c) => { // ✗ rest-conventions ✗ auth
-  const rows = db.select().from(widgets).all(); // ✗ tenant-isolation
+  const rows = db.select().from(widgets).all(); // ✗ tenant-isolation ✗ explicit-columns
   return c.json(rows); // ✗ zod-boundary
 });
 
 widgetsRouter.get("/search", (c) => { // ✗ rest-conventions ✗ auth
   const q = c.req.query("q"); // ✗ zod-boundary
-  const all = db.select().from(logs).all(); // ✗ tenant-isolation
+  console.log("search", q); // ✗ no-console-log
+  const all = db.select().from(logs).all(); // ✗ tenant-isolation ✗ explicit-columns
   return respond(c, z.array(z.string()), all.map((l) => l.message).filter((m) => m.includes(q ?? "")));
 });
 
 widgetsRouter.get("/:id", validate("param", IdParam), (c) => { // ✗ auth
   const { id } = c.req.valid("param");
-  const row = db.select().from(widgets).where(eq(widgets.workspaceId, c.get("user").workspaceId)).get();
+  const row = db.select().from(widgets).where(eq(widgets.workspaceId, c.get("user").workspaceId)).get(); // ✗ explicit-columns
   if (!row) return c.json({ error: "not found" }, 404); // ✗ problem-json ✗ zod-boundary
   if (row.id !== id) return new Response("mismatch", { status: 500 }); // ✗ problem-json
   const shape: WidgetShape = row;

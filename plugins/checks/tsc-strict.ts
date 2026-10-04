@@ -23,7 +23,7 @@ function suppressions(text: string): { line: number; message: string }[] {
 export default defineCheck({
   name: "tsc-strict",
   unit: "files",
-  rule: `TypeScript is clean under strict: \`tsc --noEmit\` passes with strict and noUncheckedIndexedAccess.
+  rule: `\`tsc --noEmit\` passes under strict + noUncheckedIndexedAccess.
 No \`any\`, no non-null assertions (\`!\`), no @ts-ignore / @ts-expect-error / @ts-nocheck.`,
   run: ({ dir, files, ast }) => {
     const p = ast();

@@ -11,7 +11,7 @@ const statusIn = (nodes: Node[], code: number) => nodes.some((n) => n.getDescend
 export default defineCheck({
   name: "rest-conventions",
   unit: "routes",
-  rule: `REST shape: /v1 base, plural kebab-case nouns, cursor lists, Idempotency-Key on POST, correct status codes.
+  rule: `REST: /v1, plural kebab nouns, cursor lists, Idempotency-Key on POST, right status codes.
 Paths start with /v1; every static segment is a plural kebab-case noun; item routes end in /:id.
 Collection GETs are cursor-paginated (cursor + limit, next cursor in the response).
 POST creates require Idempotency-Key handling and return 201; DELETE returns 204.

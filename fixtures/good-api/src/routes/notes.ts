@@ -15,7 +15,7 @@ const NoteCreate = z.object({ title: z.string().min(1).max(120), body: z.string(
 const NoteUpdate = NoteCreate.partial();
 const IdParam = z.object({ id: z.string().uuid() });
 
-const toNote = (r: typeof notes.$inferSelect): z.infer<typeof Note> => ({ id: r.id, title: r.title, body: r.body });
+const toNote = (r: Pick<typeof notes.$inferSelect, "id" | "title" | "body">): z.infer<typeof Note> => ({ id: r.id, title: r.title, body: r.body });
 
 function assertUniqueTitle(workspaceId: string, title: string, exceptId?: string): void {
   const clash = db
@@ -33,7 +33,7 @@ notesRouter.get("/", validate("query", cursorQuery), (c) => {
   const after = decodeCursor(cursor);
   const ws = c.get("user").workspaceId;
   const rows = db
-    .select()
+    .select({ id: notes.id, title: notes.title, body: notes.body })
     .from(notes)
     .where(and(eq(notes.workspaceId, ws), after ? gt(notes.id, after) : undefined))
     .orderBy(asc(notes.id))
@@ -46,7 +46,7 @@ notesRouter.get("/", validate("query", cursorQuery), (c) => {
 notesRouter.get("/:id", validate("param", IdParam), (c) => {
   const { id } = c.req.valid("param");
   const row = db
-    .select()
+    .select({ id: notes.id, title: notes.title, body: notes.body })
     .from(notes)
     .where(and(eq(notes.workspaceId, c.get("user").workspaceId), eq(notes.id, id)))
     .get();
