@@ -1,24 +1,25 @@
 #!/usr/bin/env bun
 // harness run <task> --driver <name> [--repo <path>] [--max-turns N]
-// harness check --api <dir>
+// harness check --api <dir> [--task <file>]
 import { parseArgs } from "node:util";
 import { run } from "./loop.ts";
 import { formatReport, runChecks } from "./runner.ts";
 import { redact } from "./sdk.ts";
+import { loadTask } from "./task.ts";
 
 const USAGE = `usage:
   harness run <task-file> --driver <name> [--repo <path>] [--max-turns N]
-  harness check --api <dir>`;
+  harness check --api <dir> [--task <file>]`;
 
 const { positionals, values } = parseArgs({
   allowPositionals: true,
-  options: { driver: { type: "string" }, repo: { type: "string" }, "max-turns": { type: "string" }, api: { type: "string" } },
+  options: { driver: { type: "string" }, repo: { type: "string" }, "max-turns": { type: "string" }, api: { type: "string" }, task: { type: "string" } },
 });
 const [cmd, task] = positionals;
 
 try {
   if (cmd === "check" && values.api) {
-    const report = await runChecks(values.api);
+    const report = await runChecks(values.api, values.task ? loadTask(values.task).fields : {});
     console.log(formatReport(report));
     process.exit(report.verdict === 100 ? 0 : 1);
   }

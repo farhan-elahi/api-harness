@@ -1,9 +1,9 @@
-// Drizzle tenant isolation: every table has workspace_id; every select/update/delete filters on it; every insert sets it.
+// Drizzle tenant isolation: every table has the tenant column; every select/update/delete filters on it; every insert sets it.
+// Task file: `tenancy: { column: <name> }` (default workspaceId; matches the property or the SQL name), or `tenancy: none`.
 import { Node, SyntaxKind, type CallExpression } from "ts-morph";
-import { defineCheck, type CheckResult } from "../../core/sdk.ts";
+import { defineCheck, NotApplicable, type CheckResult } from "../../core/sdk.ts";
 import { appFiles, calleeName, decl } from "../checks/_hono.ts";
 
-const COLUMN = "workspace_id";
 const TABLE_FNS = /^(sqliteTable|pgTable|mysqlTable)$/;
 const DB = /\b\w*(Database|Transaction)\b/;
 const RAW = new Set(["run", "all", "get", "values", "execute"]);
@@ -11,7 +11,8 @@ const RAW = new Set(["run", "all", "get", "values", "execute"]);
 export default defineCheck({
   name: "tenant-isolation",
   unit: "queries",
-  run: ({ ast }) => {
+  run: ({ ast, task }) => {
+    const COLUMN = tenantColumn(task.tenancy);
     const files = appFiles(ast());
     const calls = files.flatMap((sf) => sf.getDescendantsOfKind(SyntaxKind.CallExpression));
     const out: CheckResult[] = [];
@@ -24,7 +25,7 @@ export default defineCheck({
       const cols = c.getArguments()[1];
       const prop =
         cols && Node.isObjectLiteralExpression(cols)
-          ? cols.getProperties().find((p) => p.getDescendantsOfKind(SyntaxKind.StringLiteral).some((s) => s.getLiteralValue() === COLUMN))
+          ? cols.getProperties().find((p) => p.getDescendantsOfKind(SyntaxKind.StringLiteral).some((s) => s.getLiteralValue() === COLUMN) || ("getName" in p && p.getName() === COLUMN))
           : undefined;
       const name = prop && "getName" in prop ? (prop as { getName(): string }).getName() : undefined;
       if (v && name) tenantProp.set(v.compilerNode, name);
@@ -79,6 +80,14 @@ export default defineCheck({
     return out;
   },
 });
+
+function tenantColumn(t: unknown): string {
+  if (t === "none") throw new NotApplicable("tenancy: none");
+  if (t === undefined) return "workspaceId";
+  const col = t && typeof t === "object" && "column" in t ? t.column : undefined;
+  if (typeof col !== "string" || !col) throw new Error(`tenancy must be "none" or { column: <name> }, got ${JSON.stringify(t)}`);
+  return col;
+}
 
 const literal0 = (c: CallExpression) => c.getArguments()[0]?.getText() ?? "?";
 

@@ -43,6 +43,7 @@ export type CheckContext = {
   dir: string; // absolute path of the API under check
   files: string[]; // absolute paths of its .ts files (no node_modules, no .d.ts)
   ast: () => AstProject; // ts-morph program for the API (type-aware); throws Unproven if it can't load
+  task: Record<string, unknown>; // fields of the task file this API was built from ({} if none)
 };
 export type Check = {
   name: string;
@@ -53,6 +54,10 @@ export const defineCheck = (c: Check): Check => c;
 
 // Throw from a check that cannot run. It prints UNPROVEN and blocks a 100% verdict.
 export class Unproven extends Error {}
+// Throw when the rule does not apply to this API (e.g. task opts out). Prints n/a; left out of the verdict.
+export class NotApplicable extends Error {}
+// Throw when there is something to inspect but nothing the rule covers (e.g. no write routes). Passes 0/0.
+export class NothingToCheck extends Error {}
 
 // .env, .env.* (except .env.example), *.pem, *.key, anything under .git/
 export function isSecretPath(rel: string): boolean {

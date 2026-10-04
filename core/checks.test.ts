@@ -51,3 +51,35 @@ test("checks that cannot run print UNPROVEN and block 100%", async () => {
   expect(tpl.rules.find((x) => x.name === "auth")?.status).toBe("UNPROVEN");
   expect(tpl.verdict).toBeLessThan(100);
 }, T);
+
+test("tenant-isolation reads tenancy from the task: default, custom column, none", async () => {
+  const dir = assemble("good-api");
+  const rule = async (task: Record<string, unknown>) => {
+    const r = await runChecks(dir, task);
+    return { r, t: r.rules.find((x) => x.name === "tenant-isolation")! };
+  };
+  expect((await rule({})).t.status).toBe("pass"); // default workspaceId
+  expect((await rule({ tenancy: { column: "workspace_id" } })).t.status).toBe("pass"); // SQL name works too
+  const custom = await rule({ tenancy: { column: "orgId" } });
+  expect(custom.t.status).toBe("FAIL");
+  expect(custom.t.failures[0]?.message).toContain("has no orgId column");
+  const none = await rule({ tenancy: "none" });
+  expect(none.t.status).toBe("n/a");
+  expect(none.r.verdict).toBe(100); // n/a is left out of the verdict
+  expect(formatReport(none.r)).toContain("n/a  tenancy: none");
+}, T);
+
+test("authz-roles: routes but no writes passes 0/0; no routes at all is UNPROVEN", async () => {
+  const dir = assemble("good-api");
+  const routes = join(dir, "src/routes/notes.ts");
+  const src = readFileSync(routes, "utf8");
+  // keep only GET routes
+  writeFileSync(routes, src.replace(/\.(post|patch|put|delete)\(/g, ".get("));
+  const r = await runChecks(dir);
+  const a = r.rules.find((x) => x.name === "authz-roles")!;
+  expect(a).toMatchObject({ status: "pass", passed: 0, total: 0, reason: "no write routes" });
+  expect(formatReport(r)).toContain("pass  0/0 write routes (no write routes)");
+
+  const tpl = await runChecks(resolve(import.meta.dir, "../template"));
+  expect(tpl.rules.find((x) => x.name === "authz-roles")?.status).toBe("UNPROVEN");
+}, T);

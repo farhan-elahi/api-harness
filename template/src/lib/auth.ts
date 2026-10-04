@@ -6,7 +6,7 @@ export type Role = (typeof ROLES)[number];
 export type User = { id: string; workspaceId: string; role: Role };
 export type AppEnv = { Variables: { user: User } };
 
-// ponytail: in-memory token store; swap for a real identity provider in production.
+// NOTE: in-memory token store; swap for a real identity provider in production.
 const tokens = new Map<string, User>();
 export const registerToken = (token: string, user: User): void => void tokens.set(token, user);
 

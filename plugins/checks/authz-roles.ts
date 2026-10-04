@@ -1,5 +1,5 @@
 // Every write route checks the caller's role with requireRole(<known roles>).
-import { defineCheck } from "../../core/sdk.ts";
+import { defineCheck, NothingToCheck } from "../../core/sdk.ts";
 import { hono, label, literal, middlewareFor, WRITE } from "./_hono.ts";
 
 const ROLES = new Set(["owner", "member", "viewer"]);
@@ -9,8 +9,9 @@ export default defineCheck({
   unit: "write routes",
   run: ({ ast }) => {
     const h = hono(ast());
-    return h.routes
-      .filter((r) => WRITE.has(r.method))
+    const writes = h.routes.filter((r) => WRITE.has(r.method));
+    if (h.routes.length && !writes.length) throw new NothingToCheck("no write routes");
+    return writes
       .map((r) => {
         const checks = middlewareFor(h, r).filter((m) => m.name === "requireRole");
         const roles = checks.flatMap((m) => m.args.map((a) => literal(a) ?? `<${a.getText()}>`));

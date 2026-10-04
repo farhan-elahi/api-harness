@@ -4,7 +4,7 @@ import type { AppEnv } from "./auth.ts";
 import { problem } from "./problem.ts";
 
 type Saved = { body: string; requestBody: string; status: number; contentType: string };
-// ponytail: in-memory, per process; move to the DB (with TTL) for multi-instance deploys.
+// NOTE: in-memory, per process; move to the DB (with TTL) for multi-instance deploys.
 const store = new Map<string, Saved>();
 
 export function idempotency(): MiddlewareHandler<AppEnv> {
