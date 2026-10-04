@@ -109,7 +109,8 @@ test("stop-gate: allows finishing when tests + checks are green; otherwise sends
   expect(await stopGate.beforeStop!(ctx(assemble("good-api")))).toEqual({ allow: true });
   const r = await stopGate.beforeStop!(ctx(assemble("bad-api")));
   const lines = (r as { block: string }).block.split("\n");
-  expect(lines[0]).toStartWith("not done yet");
+  expect(lines[0]).toBe("Not done.");
+  expect(lines.at(-1)).toBe("Fix with edit_file, then run_tests.");
   const v = lines.indexOf("verdict 0%");
   expect(v).toBeGreaterThan(0);
   expect(lines.slice(1, v).every((l) => /\b(FAIL|UNPROVEN)\b/.test(l))).toBe(true);
@@ -123,3 +124,19 @@ test("stop-gate: rule text only for the rules that failed", async () => {
   expect(text.match(/^rule /gm)).toHaveLength(1);
   expect(text).not.toContain("rule auth:");
 }, T);
+
+test("edit_file: exact single match only; goes through the same hooks as write_file", async () => {
+  const root = mkdtempSync(join(tmpdir(), "harness-edit-"));
+  writeFileSync(join(root, "a.ts"), "const a = 1;\nconst b = 1;\n");
+  const edit = (await import("../tools/edit_file.ts")).default;
+  const c = { root, runDir: root };
+  expect(() => edit.run({ path: "a.ts", old: "= 1", new: "= 2" }, c)).toThrow("found 2 times");
+  expect(() => edit.run({ path: "a.ts", old: "nope", new: "x" }, c)).toThrow("found 0 times");
+  expect(await edit.run({ path: "a.ts", old: "const b = 1", new: "const b = 2" }, c)).toBe("edited a.ts");
+  expect(readFileSync(join(root, "a.ts"), "utf8")).toBe("const a = 1;\nconst b = 2;\n");
+
+  const call = (input: Record<string, unknown>): ToolCall => ({ id: "1", name: "edit_file", input });
+  expect(before(noDelete, ctx(root, { call: call({ path: "a.ts", old: "const a = 1;\nconst b = 2;\n", new: "" }) }))).toMatchObject({ block: expect.stringContaining("emptying") });
+  expect(before(pathGuard, ctx(root, { call: call({ path: ".env", old: "a", new: "b" }) }))).toMatchObject({ block: expect.any(String) });
+  expect(before(tddGate, ctx(root, { call: call({ path: "src/x.ts", old: "a", new: "b" }) }))).toMatchObject({ block: expect.stringContaining("no failing test") });
+});

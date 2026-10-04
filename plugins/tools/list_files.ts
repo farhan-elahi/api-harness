@@ -7,8 +7,8 @@ const MAX = 200;
 
 export default defineTool({
   name: "list_files",
-  description: "List files under a directory (recursive, relative paths). Skips node_modules/.git.",
-  input: { type: "object", properties: { dir: { type: "string", description: "default: ." } } },
+  description: "List files under dir (recursive).",
+  input: { type: "object", properties: { dir: { type: "string" } } },
   run: (input, { root }) => {
     const out: string[] = [];
     const walk = (d: string) => {

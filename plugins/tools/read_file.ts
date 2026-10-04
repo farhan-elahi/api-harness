@@ -5,7 +5,7 @@ const CAP = 200; // lines returned when no range is given
 
 export default defineTool({
   name: "read_file",
-  description: `Read a text file. Returns at most ${CAP} lines unless start/end (1-based, inclusive) are given.`,
+  description: `Read a file (max ${CAP} lines; start/end are 1-based).`,
   input: {
     type: "object",
     properties: { path: { type: "string" }, start: { type: "integer" }, end: { type: "integer" } },

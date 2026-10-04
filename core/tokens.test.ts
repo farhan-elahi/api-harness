@@ -1,11 +1,12 @@
-// Token report, baseline vs actual, and compaction, all offline with the scripted driver.
+// Token report, baseline vs actual, and the history window, all offline with the scripted driver.
 import { test, expect } from "bun:test";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { scripted } from "../drivers/fake.ts";
 import { assemble } from "../scripts/fixture.ts";
-import { compact } from "./context.ts";
+import { changedSince, mtimes, dropsTurns, stateNote, view } from "./context.ts";
+import { runTests } from "./runner.ts";
 import { run, runWithBaseline } from "./loop.ts";
 import type { Message } from "./sdk.ts";
 import type { TokenReport } from "./tokens.ts";
@@ -26,32 +27,55 @@ const SCRIPT = [
   { text: "done", toolCalls: [], raw: { blocks: ["sig-5"] } },
 ];
 
-test("compaction shrinks old tool results only; assistant turns and their raw are never touched", async () => {
+test("history window: last 3 turns verbatim (same objects, raw untouched); older turns dropped as whole pairs", () => {
+  const raw = { opaque: true };
+  const msgs: Message[] = [
+    { role: "user", text: "go" },
+    ...[1, 2, 3, 4, 5].flatMap((i): Message[] => [
+      { role: "assistant", text: `t${i}`, toolCalls: [read(`f${i}`, `${i}`)], raw },
+      { role: "tool", results: [{ id: `${i}`, output: "a\nb\nc" }] },
+    ]),
+    { role: "user", text: "blocked by stop-gate" },
+  ];
+  const v = view("actual", msgs, "STATE");
+  expect(v[0]).toEqual({ role: "user", text: "go\n\nSTATE" });
+  expect(v.slice(1)).toEqual(msgs.slice(5)); // t3..t5 + their answers
+  for (let i = 1; i < v.length; i++) expect(v[i]).toBe(msgs[i + 4]!); // same objects: never edited
+  expect(v[1]!.role).toBe("assistant"); // no orphan tool result
+  const ids = new Set(v.flatMap((m) => (m.role === "assistant" ? m.toolCalls.map((c) => c.id) : [])));
+  for (const m of v) if (m.role === "tool") for (const r of m.results) expect(ids.has(r.id)).toBe(true);
+  expect(view("baseline", msgs, "DUMP").slice(1)).toEqual(msgs.slice(1)); // baseline keeps everything
+  expect(dropsTurns("actual", msgs.slice(0, 7))).toBe(false);
+});
+
+test("state note is built from disk: changed files, a fresh test run, a fresh check run", async () => {
+  const root = assemble("good-api");
+  const since = mtimes(root);
+  writeFileSync(join(root, "src/extra.ts"), "export const x = 1;\n");
+  const changed = changedSince(root, since);
+  expect(changed).toEqual(["src/extra.ts"]);
+  const note = await stateNote(root, {}, changed);
+  const t = runTests(root);
+  expect(note).toContain("files changed: src/extra.ts");
+  expect(note).toContain(`tests: ${t.total} pass`);
+  expect(note).toContain("checks: verdict 100%");
+  expect(note.length).toBeLessThanOrEqual(1200);
+}, T);
+
+test("run: the model sees the window + the harness state note once turns are dropped", async () => {
   const d = scripted(SCRIPT);
   const r = await run({ task: taskFile(), driver: d, repo: assemble("good-api"), hooks: [], tokensDir: tmp("harness-tokens-") });
   expect(r.completed).toBe(true);
   const last = d.seen.at(-1)!;
-  const assistants = last.filter((m) => m.role === "assistant");
-  expect(assistants.map((m) => m.raw)).toEqual(SCRIPT.slice(0, 4).map((s) => s.raw));
-  expect(assistants.map((m) => m.toolCalls)).toEqual(SCRIPT.slice(0, 4).map((s) => s.toolCalls));
-  const outputs = last.flatMap((m) => (m.role === "tool" ? m.results.map((x) => x.output) : []));
-  expect(outputs[0]).toMatch(/^\[read_file src\/routes\/notes\.ts: \d+ lines, compacted\]$/);
-  expect(outputs[1]).toMatch(/^\[read_file src\/db\/schema\.ts: \d+ lines, compacted\]$/);
-  expect(outputs[2]).toContain("\n"); // last 2 kept in full
-  expect(outputs[3]).toContain("\n");
+  expect((last[0] as { text: string }).text).toContain("State (written by the harness from disk");
+  expect(last.filter((m) => m.role === "assistant").map((m) => m.raw)).toEqual(SCRIPT.slice(1, 4).map((s) => s.raw));
+}, T);
 
-  // direct: raw object identity survives compaction
-  const raw = { opaque: true };
-  const msgs: Message[] = [
-    { role: "user", text: "go" },
-    ...[1, 2, 3].flatMap((i): Message[] => [
-      { role: "assistant", text: "", toolCalls: [read(`f${i}`, `${i}`)], raw },
-      { role: "tool", results: [{ id: `${i}`, output: "a\nb\nc" }] },
-    ]),
-  ];
-  compact(msgs);
-  expect((msgs[1] as { raw: unknown }).raw).toBe(raw);
-  expect((msgs[2] as Extract<Message, { role: "tool" }>).results[0]!.output).toBe("[read_file f1: 3 lines, compacted]");
+test("actual fixed cost (system prompt + tool definitions) is under 1,000 tokens", async () => {
+  const d = scripted([{ text: "done", toolCalls: [] }]);
+  const r = await run({ task: taskFile(), driver: d, repo: assemble("good-api"), hooks: [], tokensDir: tmp("harness-tokens-") });
+  expect(r.fixed_cost.total).toBeLessThan(1000);
+  expect(d.systems[0]).toContain("function respond<S extends z.ZodType>"); // map generated from template/src/lib
 }, T);
 
 test("token report has the right shape, cache reads shown separately and inside input", async () => {
@@ -77,7 +101,7 @@ test("--with-baseline: same task + driver, baseline input > actual input, one co
   expect(actual.completed && baseline.completed).toBe(true);
   expect(baseline.run_id).toEndWith("_baseline");
 
-  // baseline: full rule text + every source file up front, no JIT tools, no compaction
+  // baseline: full rule text + every source file re-injected each turn, no JIT tools, no window
   const b = d.seen.findIndex((m) => m.length === 1);
   const a = d.seen.findLastIndex((m) => m.length === 1);
   expect(a).toBeGreaterThan(b);
@@ -88,7 +112,9 @@ test("--with-baseline: same task + driver, baseline input > actual input, one co
   expect(d.systems[a]).not.toContain("No raw SQL"); // detail lines only via get_rule / on failure
   expect(d.toolNames[b]).not.toContain("get_rule");
   expect(d.toolNames[a]).toEqual(expect.arrayContaining(["get_rule", "get_route", "get_schema"]));
-  expect(d.systems[a]!.length).toBeLessThan(2048);
+  const lastBaseline = d.seen[a - 1]!;
+  expect((lastBaseline[0] as { text: string }).text.match(/=== src\/routes\/notes\.ts ===/g)).toHaveLength(1); // refreshed, not appended
+  expect(lastBaseline.length).toBe(1 + 2 * 4); // whole history kept
 
   const rep = JSON.parse(readFileSync(join(dir, `${actual.run_id}.json`), "utf8")) as TokenReport;
   expect(rep).toEqual(report);

@@ -4,7 +4,7 @@ import { defineTool } from "../../core/sdk.ts";
 export default defineTool({
   name: "get_rule",
   jit: true,
-  description: "Full text of one standards rule by name (names are in the rule index).",
+  description: "Full text of one rule.",
   input: { type: "object", properties: { name: { type: "string" } }, required: ["name"] },
   run: async (input) => {
     const checks = await loadChecks();

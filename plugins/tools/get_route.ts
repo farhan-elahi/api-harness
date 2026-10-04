@@ -7,7 +7,7 @@ import { project } from "./_project.ts";
 export default defineTool({
   name: "get_route",
   jit: true,
-  description: 'One route\'s registration + handler, plus the Zod schemas its validators use. route = "METHOD /v1/path". Omit to list routes.',
+  description: 'One route\'s handler + its Zod schemas. route = "GET /v1/x"; omit to list.',
   input: { type: "object", properties: { route: { type: "string" } } },
   run: (input, { root }) => {
     const routes = hono(project(root)).routes;

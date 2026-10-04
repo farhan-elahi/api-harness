@@ -1,8 +1,9 @@
-// After write_file on a .ts file: run tsc on the project and hand back only that file's errors (max 10 lines).
+// After write_file/edit_file on a .ts file: run tsc on the project and hand back only that file's errors (max 10 lines).
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { allow, defineHook, note } from "../../core/sdk.ts";
+import { isWrite } from "./_write.ts";
 
 const MAX = 10;
 const HARNESS_TSC = resolve(import.meta.dir, "../../node_modules/.bin/tsc");
@@ -10,7 +11,7 @@ const HARNESS_TSC = resolve(import.meta.dir, "../../node_modules/.bin/tsc");
 export default defineHook({
   name: "post-write-feedback",
   afterTool: ({ call, root }) => {
-    const p = call?.name === "write_file" ? call.input.path : undefined;
+    const p = isWrite(call) ? call!.input.path : undefined;
     if (typeof p !== "string" || !/\.tsx?$/.test(p) || !existsSync(join(root, "tsconfig.json"))) return allow;
     const tsc = [join(root, "node_modules/.bin/tsc"), HARNESS_TSC].find(existsSync);
     if (!tsc) return allow;

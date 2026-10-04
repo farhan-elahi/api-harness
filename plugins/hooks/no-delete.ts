@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { Project } from "ts-morph";
 import { allow, block, defineHook, inRoot, Unproven } from "../../core/sdk.ts";
 import { hono } from "../checks/_hono.ts";
+import { nextContent } from "./_write.ts";
 
 const DELETING = /delete|remove|unlink|rm|rename|move/i;
 
@@ -36,7 +37,7 @@ export default defineHook({
     }
     if (!existsSync(abs)) return allow;
     if (DELETING.test(call!.name)) return block(`${p} exists; deleting or moving existing files is not allowed`);
-    const next = call!.input.content;
+    const next = nextContent(call, root);
     if (typeof next !== "string") return allow;
     const prev = readFileSync(abs, "utf8");
     if (prev.trim() && !next.trim()) return block(`${p} exists; emptying it is not allowed`);
