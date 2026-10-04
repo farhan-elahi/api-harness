@@ -2,6 +2,7 @@
 // base_url, model and key_env come from drivers/drivers.yaml.
 import OpenAI from "openai";
 import type { DriverFactory, Message, Reply } from "../core/sdk.ts";
+import { withRetry } from "./_retry.ts";
 
 type Msg = OpenAI.Chat.ChatCompletionMessageParam;
 
@@ -30,22 +31,23 @@ const parseArgs = (s: string): Record<string, unknown> => {
   }
 };
 
+const num = (v: unknown) => (typeof v === "number" ? v : undefined);
 const STOP: Record<string, Reply["stop"]> = { tool_calls: "tool", length: "limit" };
 
 const create: DriverFactory = (cfg) => {
   const keyEnv = String(cfg.key_env ?? "OPENAI_API_KEY");
   const apiKey = process.env[keyEnv];
   if (!apiKey) throw new Error(`${keyEnv} is not set. Add it to .env (see .env.example).`);
-  const client = new OpenAI({ apiKey, ...(cfg.base_url ? { baseURL: String(cfg.base_url) } : {}) });
+  const client = new OpenAI({ apiKey, maxRetries: 0, ...(cfg.base_url ? { baseURL: String(cfg.base_url) } : {}) });
 
   return {
     async send(system, messages, tools) {
-      const res = await client.chat.completions.create({
+      const { value: res, retries } = await withRetry(() => client.chat.completions.create({
         model: String(cfg.model),
         ...(cfg.reasoning_effort ? { reasoning_effort: cfg.reasoning_effort as OpenAI.ReasoningEffort } : {}),
         messages: [{ role: "system", content: system }, ...messages.flatMap(toVendor)],
         tools: tools.map((t) => ({ type: "function", function: { name: t.name, description: t.description, parameters: t.input } })),
-      });
+      }), { baseMs: num(cfg.retry_base_ms) });
       const choice = res.choices[0];
       if (!choice) throw new Error("provider returned no choices");
       const msg = choice.message;
@@ -63,6 +65,7 @@ const create: DriverFactory = (cfg) => {
         },
         stop: STOP[choice.finish_reason] ?? "end",
         raw: msg,
+        retries,
       };
     },
   };

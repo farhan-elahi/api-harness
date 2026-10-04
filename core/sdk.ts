@@ -21,7 +21,9 @@ export type Reply = {
   usage: Usage;
   stop: "end" | "tool" | "pause" | "limit";
   raw?: unknown;
+  retries?: RetryEvent[]; // transient provider errors retried before this reply (same request, same model)
 };
+export type RetryEvent = { attempt: number; status?: number; waitMs: number; error: string };
 
 export type ToolSpec = { name: string; description: string; input: JSONSchema };
 

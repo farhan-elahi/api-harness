@@ -1,6 +1,7 @@
 // Anthropic driver: translates the harness's neutral messages/tools to the Messages API and back.
 import Anthropic from "@anthropic-ai/sdk";
 import type { DriverFactory, Message, Reply } from "../core/sdk.ts";
+import { withRetry } from "./_retry.ts";
 
 type Block = Anthropic.ContentBlockParam;
 
@@ -19,23 +20,24 @@ const toVendor = (m: Message): Anthropic.MessageParam => {
   return { role: "assistant", content };
 };
 
+const num = (v: unknown) => (typeof v === "number" ? v : undefined);
 const STOP: Record<string, Reply["stop"]> = { tool_use: "tool", pause_turn: "pause", max_tokens: "limit" };
 
 const create: DriverFactory = (cfg) => {
   const keyEnv = String(cfg.key_env ?? "ANTHROPIC_API_KEY");
   const apiKey = process.env[keyEnv];
   if (!apiKey) throw new Error(`${keyEnv} is not set. Add it to .env (see .env.example).`);
-  const client = new Anthropic({ apiKey });
+  const client = new Anthropic({ apiKey, maxRetries: 0, ...(cfg.base_url ? { baseURL: String(cfg.base_url) } : {}) }); // retries: _retry.ts
   return {
     async send(system, messages, tools) {
-      const res = await client.messages.create({
+      const { value: res, retries } = await withRetry(() => client.messages.create({
         model: String(cfg.model),
         max_tokens: Number(cfg.max_tokens ?? 16000),
         ...(cfg.effort ? { output_config: { effort: cfg.effort as Anthropic.OutputConfig["effort"] } } : {}),
         system,
         messages: messages.map(toVendor),
         tools: tools.map((t) => ({ name: t.name, description: t.description, input_schema: t.input as Anthropic.Tool.InputSchema })),
-      });
+      }), { baseMs: num(cfg.retry_base_ms) });
       if (res.stop_reason === "refusal") throw new Error(`model refused: ${res.stop_details?.category ?? "unknown"}`);
       const u = res.usage;
       return {
@@ -51,6 +53,7 @@ const create: DriverFactory = (cfg) => {
         },
         stop: STOP[res.stop_reason ?? ""] ?? "end",
         raw: res.content,
+        retries,
       };
     },
   };
