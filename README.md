@@ -10,15 +10,23 @@ Governs AI-written TypeScript REST APIs so standards hold whichever model does t
 
 ## Setup
 ```
-npm run setup          # installs Bun if missing, deps, creates .env, runs offline tests + tsc
+npm run setup          # installs Bun if missing, deps, links the `harness` command, creates .env, runs offline tests + tsc
 # then add ANTHROPIC_API_KEY to .env
 ```
 
 ## Run
 ```
-bun harness run tasks/notes.yaml --driver claude [--repo <path>] [--max-turns N]
-bun harness check --api <dir>      # standards: one line per rule, then verdict NN%
+harness run tasks/notes.yaml --driver claude [--repo <path>] [--max-turns N] [--with-baseline]
+harness check --api <dir>          # standards: one line per rule, then verdict NN%
+harness check --api fixtures/good-api
 ```
+Run from the repo root (runs/, tokens/, generated/ and template/ are relative to it).
+No link? `bun harness ...` does the same.
+
+## Hooks
+`plugins/hooks/` run around every tool call. Besides the gates (path-guard, tdd-gate, no-delete, stop-gate,
+budget-guard), `read-loop-guard` adds a harness-computed `Next:` line to the state note and, after 5 turns with
+no write, edit or test run, blocks further reads with that line. path-guard also refuses writes under node_modules/.
 
 ## Standards checks
 `plugins/checks/` and `plugins/validators/` are AST checks built on ts-morph:
@@ -37,4 +45,4 @@ Fixtures are overlays on `template/`:
 - `fixtures/good-api` scores 100%.
 - `fixtures/bad-api` fails at every `✗ <rule>` marker.
 
-Try one with `bun harness check --api $(bun scripts/fixture.ts bad-api)`.
+Try one with `harness check --api fixtures/bad-api` (the overlay is assembled on template/ first).

@@ -54,7 +54,7 @@ test("state note is built from disk: changed files, a fresh test run, a fresh ch
   writeFileSync(join(root, "src/extra.ts"), "export const x = 1;\n");
   const changed = changedSince(root, since);
   expect(changed).toEqual(["src/extra.ts"]);
-  const note = await stateNote(root, {}, changed);
+  const { text: note } = await stateNote(root, {}, changed);
   const t = runTests(root);
   expect(note).toContain("files changed: src/extra.ts");
   expect(note).toContain(`tests: ${t.total} pass`);
@@ -69,6 +69,13 @@ test("run: the model sees the window + the harness state note once turns are dro
   const last = d.seen.at(-1)!;
   expect((last[0] as { text: string }).text).toContain("State (written by the harness from disk");
   expect(last.filter((m) => m.role === "assistant").map((m) => m.raw)).toEqual(SCRIPT.slice(1, 4).map((s) => s.raw));
+}, T);
+
+test("run: hooks can add a line to the state note (rebuilt every turn)", async () => {
+  const d = scripted(SCRIPT);
+  const hooks = [{ name: "n", state: ({ turn, measured }: { turn: number; measured: { verdict: number } }) => `Next: turn ${turn}, verdict ${measured.verdict}%` }];
+  await run({ task: taskFile(), driver: d, repo: assemble("good-api"), hooks, tokensDir: tmp("harness-tokens-") });
+  expect((d.seen.at(-1)![0] as { text: string }).text).toContain("Next: turn 5, verdict 100%");
 }, T);
 
 test("actual fixed cost (system prompt + tool definitions) is under 1,000 tokens", async () => {
