@@ -1,5 +1,6 @@
 // Public contract for drivers and plugins. Plugin authors import from here; they never edit it.
 import { resolve, relative, isAbsolute } from "node:path";
+import type { Project as AstProject } from "ts-morph";
 
 export type JSONSchema = Record<string, unknown>;
 
@@ -35,6 +36,23 @@ export type Tool = ToolSpec & {
 };
 
 export const defineTool = (t: Tool): Tool => t;
+
+// Checks, validators and lint rules share one contract. Each returns one result per thing it inspected.
+export type CheckResult = { file: string; line: number; pass: boolean; message: string };
+export type CheckContext = {
+  dir: string; // absolute path of the API under check
+  files: string[]; // absolute paths of its .ts files (no node_modules, no .d.ts)
+  ast: () => AstProject; // ts-morph program for the API (type-aware); throws Unproven if it can't load
+};
+export type Check = {
+  name: string;
+  unit: string; // what results count, e.g. "routes", "handlers"
+  run: (ctx: CheckContext) => CheckResult[] | Promise<CheckResult[]>;
+};
+export const defineCheck = (c: Check): Check => c;
+
+// Throw from a check that cannot run. It prints UNPROVEN and blocks a 100% verdict.
+export class Unproven extends Error {}
 
 // .env, .env.* (except .env.example), *.pem, *.key, anything under .git/
 export function isSecretPath(rel: string): boolean {
