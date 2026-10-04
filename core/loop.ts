@@ -2,7 +2,7 @@
 import { appendFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { changedSince, dropsTurns, fixedCost, openingMessage, projectDump, stateNote, systemPrompt, view, type Mode } from "./context.ts";
+import { changedSince, mtimes, dropsTurns, fixedCost, openingMessage, projectDump, stateNote, systemPrompt, view, type Mode } from "./context.ts";
 import { loadHooks, runHooks, type HookPoint } from "./hooks.ts";
 import { loadDriver, loadTools } from "./loader.ts";
 import { loadChecks } from "./runner.ts";
@@ -59,7 +59,7 @@ export async function run(opts: RunOptions) {
   const fixed = fixedCost(system, specs);
   console.log(`fixed cost [${mode}]: system ${fixed.system} + tools ${fixed.tools} = ${fixed.total} tokens (est.)`);
   const messages: Message[] = [{ role: "user", text: openingMessage(task.path, task.text) }];
-  const started = Date.now() - 1;
+  const started = mtimes(root);
   let state = { key: undefined as string | undefined, text: "" }; // state note, rebuilt only when disk changed
   const extra = async () => {
     if (mode === "baseline") return projectDump(root).trimStart();

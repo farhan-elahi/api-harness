@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { scripted } from "../drivers/fake.ts";
 import { assemble } from "../scripts/fixture.ts";
-import { changedSince, dropsTurns, stateNote, view } from "./context.ts";
+import { changedSince, mtimes, dropsTurns, stateNote, view } from "./context.ts";
 import { runTests } from "./runner.ts";
 import { run, runWithBaseline } from "./loop.ts";
 import type { Message } from "./sdk.ts";
@@ -50,8 +50,7 @@ test("history window: last 3 turns verbatim (same objects, raw untouched); older
 
 test("state note is built from disk: changed files, a fresh test run, a fresh check run", async () => {
   const root = assemble("good-api");
-  await Bun.sleep(50);
-  const since = Date.now();
+  const since = mtimes(root);
   writeFileSync(join(root, "src/extra.ts"), "export const x = 1;\n");
   const changed = changedSince(root, since);
   expect(changed).toEqual(["src/extra.ts"]);

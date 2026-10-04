@@ -88,15 +88,11 @@ export function openingMessage(taskPath: string, taskText: string): string {
   return `Task file ${taskPath}:\n\n${taskText}`;
 }
 
-// Files changed on disk since the run started.
-export const changedSince = (root: string, since: number) =>
-  sourceFiles(root).filter((f) => {
-    try {
-      return statSync(join(root, f)).mtimeMs >= since;
-    } catch {
-      return false;
-    }
-  });
+// file -> mtime. Compared against a snapshot, not the wall clock (fs timestamps can lag Date.now()).
+export const mtimes = (root: string) => new Map(sourceFiles(root).map((f) => [f, statSync(join(root, f)).mtimeMs]));
+// Files new or modified since the snapshot.
+export const changedSince = (root: string, before: Map<string, number>) =>
+  [...mtimes(root)].filter(([f, t]) => before.get(f) !== t).map(([f]) => f);
 
 // The harness's own account of where things stand: changed files, a fresh test run, a fresh check run.
 export async function stateNote(root: string, taskFields: Record<string, unknown>, changed: string[]): Promise<string> {
