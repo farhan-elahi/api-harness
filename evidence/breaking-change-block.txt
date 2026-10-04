@@ -1,0 +1,23 @@
+fixed cost [actual]: system 581 + tools 367 = 948 tokens (est.)
+turn 1: in=1008 out=39 edit_file
+turn 2: in=1077 out=67 edit_file
+turn 3: in=1174 out=2 (no tools)
+  blocked by contract-gate
+turn 4: in=1294 out=4 (no tools)
+  blocked by contract-gate
+turn 5: in=1423 out=4 (no tools)
+  blocked by contract-gate
+turn 6: in=1449 out=4 (no tools)
+$ bun scripts/demo-breaking-change.ts
+change run on a copy of examples/sample-existing-api (fake driver, hooks: contract-gate only, so tdd-gate does not stop the edit first)
+edit: src/routes/tasks.ts removes `body` from the Task response
+
+harness reply to "done":
+blocked by contract-gate: Breaking API change; existing clients would break. Keep the old contract (add, don't change):
+src/routes/tasks.ts:31 GET /v1/tasks: response field data[].body removed
+src/routes/tasks.ts:46 GET /v1/tasks/:id: response field body removed
+src/routes/tasks.ts:57 POST /v1/tasks: response field body removed
+src/routes/tasks.ts:69 PATCH /v1/tasks/:id: response field body removed
+
+run: not completed (loop: 3 identical replies in a row)
+log: runs/2026-10-04T16-06-53_custom_drop-body-1791130013037/

@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-// harness run <task> --driver <name> [--repo <path>] [--max-turns N] [--max-tokens N] [--baseline | --with-baseline]
+// harness run <task> --driver <name> [--repo <path>] [--max-turns N] [--max-tokens N] [--baseline | --with-baseline] [--no-ship]
 // harness check --api <dir> [--task <file>]
 import { basename, dirname, resolve } from "node:path";
 import { parseArgs } from "node:util";
@@ -11,12 +11,12 @@ import { assertClean, ship, stripExample } from "./ship.ts";
 import { loadTask } from "./task.ts";
 
 const USAGE = `usage:
-  harness run <task-file> --driver <name> [--repo <path>] [--max-turns N] [--max-tokens N] [--baseline | --with-baseline]
+  harness run <task-file> --driver <name> [--repo <path>] [--max-turns N] [--max-tokens N] [--baseline | --with-baseline] [--no-ship]
   harness check --api <dir> [--task <file>]`;
 
 const { positionals, values } = parseArgs({
   allowPositionals: true,
-  options: { driver: { type: "string" }, repo: { type: "string" }, "max-turns": { type: "string" }, "max-tokens": { type: "string" }, baseline: { type: "boolean" }, "with-baseline": { type: "boolean" }, api: { type: "string" }, task: { type: "string" } },
+  options: { driver: { type: "string" }, repo: { type: "string" }, "max-turns": { type: "string" }, "max-tokens": { type: "string" }, baseline: { type: "boolean" }, "with-baseline": { type: "boolean" }, api: { type: "string" }, task: { type: "string" }, "no-ship": { type: "boolean" } },
 });
 const [cmd, task] = positionals;
 
@@ -49,8 +49,8 @@ try {
       if (!s.ok) return false;
     }
     const body = `Task: ${t.path}\nRun: runs/${r.run_id}/ (driver ${r.driver}, ${r.turns.length} turns)\nTokens: ${r.tokens}\nGates: stop-gate green (tests pass, harness check 100%).`;
-    const s = ship({ root: r.root, task: t.name, title: `harness: ${t.name}`, body, extra: [r.tokens] });
-    console.log(redact(`ship: ${s.message}`));
+    const s = ship({ root: r.root, task: t.name, title: `harness: ${t.name}`, body, extra: [r.tokens], skip: values["no-ship"] });
+    console.log(redact(s.status === "skipped" ? s.message : `ship: ${s.message}`));
     return s.status === "shipped" || s.status === "skipped";
   };
   if (values["with-baseline"]) {
