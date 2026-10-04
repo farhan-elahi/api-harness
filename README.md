@@ -16,7 +16,7 @@ npm run setup          # installs Bun if missing, deps, creates .env, runs offli
 
 ## Run
 ```
-bun harness run tasks/hello.yaml --driver claude [--repo <path>] [--max-turns N]
+bun harness run tasks/notes.yaml --driver claude [--repo <path>] [--max-turns N]
 bun harness check --api <dir>      # standards: one line per rule, then verdict NN%
 ```
 

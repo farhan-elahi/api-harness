@@ -53,11 +53,13 @@ export type Check = {
 export const defineCheck = (c: Check): Check => c;
 
 // Hooks run around every tool call and before the agent may finish. Allow, block (reason goes back to the
-// model), or stop (ends the run as failed). Hooks run in filename order; the first non-allow wins.
-export type HookResult = { allow: true } | { block: string } | { stop: string };
+// model), stop (ends the run as failed), or note (afterTool only: text appended to the tool result).
+// Hooks run in filename order; the first block/stop wins.
+export type HookResult = { allow: true } | { block: string } | { stop: string } | { note: string };
 export const allow: HookResult = { allow: true };
 export const block = (reason: string): HookResult => ({ block: reason });
 export const stop = (reason: string): HookResult => ({ stop: reason });
+export const note = (text: string): HookResult => ({ note: text });
 export type HookContext = {
   root: string; // project dir the agent works in
   runDir: string; // runs/<id>/ — hooks may record evidence here

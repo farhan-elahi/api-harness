@@ -54,3 +54,12 @@ test("beforeStop block makes the model continue; budget stop marks the run faile
   expect(d.seen[1]!.at(-1)).toEqual({ role: "user", text: "blocked by nag: not yet" });
   expect(r).toMatchObject({ completed: false, status: "failed", reason: "budget-guard: over budget: turn 4 > max 3 turns" });
 });
+
+test("afterTool notes are appended to the tool result (not an error) and logged", async () => {
+  const { task, repo } = setup();
+  const d = scripted([{ text: "", toolCalls: [{ id: "1", name: "write_file", input: { path: "a.ts", content: "x" } }] }, { text: "ok", toolCalls: [] }]);
+  const r = await run({ task, driver: d, repo, hooks: [{ name: "fb", afterTool: () => ({ note: "a.ts:1:1 TS1 boom" }) }] });
+  expect(toolMsg(d.seen[1]!).results[0]).toEqual({ id: "1", output: "wrote a.ts (1 lines)\na.ts:1:1 TS1 boom" });
+  const log = readFileSync(join("runs", r.run_id, "transcript.jsonl"), "utf8");
+  expect(log).toContain('"hook":"fb","point":"afterTool","tool":"write_file","note":"a.ts:1:1 TS1 boom"');
+});
