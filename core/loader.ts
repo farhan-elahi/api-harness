@@ -8,7 +8,7 @@ const ROOT = resolve(import.meta.dir, "..");
 export async function loadPlugins<T extends { name: string }>(kind: string): Promise<T[]> {
   const dir = join(ROOT, "plugins", kind);
   if (!existsSync(dir)) return [];
-  const files = readdirSync(dir).filter((f) => /\.ts$/.test(f) && !f.startsWith("_")).sort();
+  const files = readdirSync(dir).filter((f) => /\.ts$/.test(f) && !/\.test\.ts$/.test(f) && !f.startsWith("_")).sort();
   const mods = await Promise.all(files.map((f) => import(join(dir, f))));
   return mods.map((m, i) => {
     if (!m.default?.name) throw new Error(`plugins/${kind}/${files[i]}: missing default export with a name`);

@@ -3,7 +3,7 @@ import { mkdirSync, appendFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { loadDriver, loadTools } from "./loader.ts";
 import { loadTask } from "./task.ts";
-import type { Message, ToolResult } from "./sdk.ts";
+import { redact, type Message, type ToolResult } from "./sdk.ts";
 
 const SYSTEM =
   "You are a coding agent working inside one project directory. Use the tools to inspect and write files. " +
@@ -16,11 +16,11 @@ export async function run(opts: RunOptions) {
   const root = resolve(opts.repo ?? (typeof task.fields.target === "string" ? task.fields.target : join("generated", task.name)));
   const runId = `${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}_${opts.driver}_${task.name}`;
   const runDir = resolve("runs", runId);
-  mkdirSync(root, { recursive: true });
-  mkdirSync(runDir, { recursive: true });
-  const log = (e: object) => appendFileSync(join(runDir, "transcript.jsonl"), JSON.stringify(e) + "\n");
+  const log = (e: object) => appendFileSync(join(runDir, "transcript.jsonl"), redact(JSON.stringify(e)) + "\n");
 
   const [driver, tools] = await Promise.all([loadDriver(opts.driver), loadTools()]);
+  mkdirSync(root, { recursive: true });
+  mkdirSync(runDir, { recursive: true });
   const byName = new Map(tools.map((t) => [t.name, t]));
   const specs = tools.map(({ name, description, input }) => ({ name, description, input }));
   const messages: Message[] = [{ role: "user", text: `Task file ${task.path}:\n\n${task.text}` }];
@@ -56,6 +56,6 @@ export async function run(opts: RunOptions) {
   }
 
   const summary = { run_id: runId, driver: opts.driver, task: task.path, root, turns, final, completed: final !== "" };
-  writeFileSync(join(runDir, "run.json"), JSON.stringify(summary, null, 2));
+  writeFileSync(join(runDir, "run.json"), redact(JSON.stringify(summary, null, 2)));
   return summary;
 }

@@ -2,9 +2,9 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { DriverFactory, Message, Reply } from "../core/sdk.ts";
 
-type Block = Anthropic.Beta.BetaContentBlockParam;
+type Block = Anthropic.ContentBlockParam;
 
-const toVendor = (m: Message): Anthropic.Beta.BetaMessageParam => {
+const toVendor = (m: Message): Anthropic.MessageParam => {
   if (m.role === "user") return { role: "user", content: m.text };
   if (m.role === "tool")
     return {
@@ -22,17 +22,19 @@ const toVendor = (m: Message): Anthropic.Beta.BetaMessageParam => {
 const STOP: Record<string, Reply["stop"]> = { tool_use: "tool", pause_turn: "pause", max_tokens: "limit" };
 
 const create: DriverFactory = (cfg) => {
-  const client = new Anthropic(); // ANTHROPIC_API_KEY from env (.env auto-loaded by bun)
+  const keyEnv = String(cfg.key_env ?? "ANTHROPIC_API_KEY");
+  const apiKey = process.env[keyEnv];
+  if (!apiKey) throw new Error(`${keyEnv} is not set. Add it to .env (see .env.example).`);
+  const client = new Anthropic({ apiKey });
   return {
     async send(system, messages, tools) {
-      const res = await client.beta.messages.create({
+      const res = await client.messages.create({
         model: String(cfg.model),
         max_tokens: Number(cfg.max_tokens ?? 16000),
+        ...(cfg.effort ? { output_config: { effort: cfg.effort as Anthropic.OutputConfig["effort"] } } : {}),
         system,
         messages: messages.map(toVendor),
-        tools: tools.map((t) => ({ name: t.name, description: t.description, input_schema: t.input as Anthropic.Beta.BetaTool.InputSchema })),
-        betas: ["server-side-fallback-2026-07-01"],
-        fallbacks: "default",
+        tools: tools.map((t) => ({ name: t.name, description: t.description, input_schema: t.input as Anthropic.Tool.InputSchema })),
       });
       if (res.stop_reason === "refusal") throw new Error(`model refused: ${res.stop_details?.category ?? "unknown"}`);
       const u = res.usage;

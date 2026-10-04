@@ -36,11 +36,33 @@ export type Tool = ToolSpec & {
 
 export const defineTool = (t: Tool): Tool => t;
 
-// Resolve a model-supplied path inside root; throws on escape.
+// .env, .env.* (except .env.example), *.pem, *.key, anything under .git/
+export function isSecretPath(rel: string): boolean {
+  const parts = rel.split(/[\\/]/);
+  const base = parts.at(-1) ?? "";
+  return (
+    parts.includes(".git") ||
+    ((base === ".env" || base.startsWith(".env.")) && base !== ".env.example") ||
+    /\.(pem|key)$/i.test(base)
+  );
+}
+
+// Resolve a model-supplied path inside root; throws on escape or secret file.
 export function inRoot(root: string, p: unknown): string {
   if (typeof p !== "string" || !p) throw new Error("path must be a non-empty string");
   const abs = resolve(root, p);
   const rel = relative(root, abs);
   if (rel.startsWith("..") || isAbsolute(rel)) throw new Error(`path escapes project root: ${p}`);
+  if (isSecretPath(rel)) throw new Error("blocked: secret file");
   return abs;
+}
+
+// Mask anything key-shaped before it hits a transcript, log or console.
+export function redact(s: string): string {
+  for (const [k, v] of Object.entries(process.env))
+    if (v && v.length >= 8 && /(_KEY|_TOKEN)$/.test(k)) s = s.replaceAll(v, "[REDACTED]");
+  return s
+    .replace(/\bsk-ant-[\w-]+/g, "[REDACTED]")
+    .replace(/\bsk-[\w-]{16,}/g, "[REDACTED]")
+    .replace(/\b(\w*(?:_KEY|_TOKEN))(\s*[=:]\s*["']?)[^\s"',}]+/g, "$1$2[REDACTED]");
 }

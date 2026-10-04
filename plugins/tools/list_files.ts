@@ -1,6 +1,6 @@
 import { readdirSync } from "node:fs";
 import { join, relative } from "node:path";
-import { defineTool, inRoot } from "../../core/sdk.ts";
+import { defineTool, inRoot, isSecretPath } from "../../core/sdk.ts";
 
 const SKIP = new Set(["node_modules", ".git", "dist", "coverage"]);
 const MAX = 200;
@@ -13,8 +13,8 @@ export default defineTool({
     const out: string[] = [];
     const walk = (d: string) => {
       for (const e of readdirSync(d, { withFileTypes: true })) {
-        if (out.length >= MAX || SKIP.has(e.name)) continue;
         const p = join(d, e.name);
+        if (out.length >= MAX || SKIP.has(e.name) || isSecretPath(relative(root, p))) continue;
         e.isDirectory() ? walk(p) : out.push(relative(root, p));
       }
     };
