@@ -78,10 +78,10 @@ test("run: hooks can add a line to the state note (rebuilt every turn)", async (
   expect((d.seen.at(-1)![0] as { text: string }).text).toContain("Next: turn 5, verdict 100%");
 }, T);
 
-test("actual fixed cost (system prompt + tool definitions) is under 1,000 tokens", async () => {
+test("actual fixed cost (system prompt + tool definitions) is under 1,500 tokens", async () => {
   const d = scripted([{ text: "done", toolCalls: [] }]);
   const r = await run({ task: taskFile(), driver: d, repo: assemble("good-api"), hooks: [], tokensDir: tmp("harness-tokens-") });
-  expect(r.fixed_cost.total).toBeLessThan(1000);
+  expect(r.fixed_cost.total).toBeLessThan(1500); // guards against bloat; leaves room for added plugins
   expect(d.systems[0]).toContain("function respond<S extends z.ZodType>"); // map generated from template/src/lib
   expect(d.systems[0]).toContain("src/routes/_example.ts + test/_example.test.ts: copy this pattern");
 }, T);

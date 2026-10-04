@@ -9,7 +9,7 @@
     "setup": "node scripts/setup.mjs",
     "harness": "bun core/cli.ts",
     "typecheck": "tsc --noEmit",
-    "verify": "bun test && tsc --noEmit && bun scripts/check-leaks.ts"
+    "verify": "bun test && tsc --noEmit && bun scripts/check-leaks.ts && bun scripts/check-secrets.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",

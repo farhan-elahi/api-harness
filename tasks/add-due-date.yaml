@@ -1,0 +1,4 @@
+# Brownfield: change an existing API without breaking its clients.
+mode: change
+target: examples/sample-existing-api
+change: add optional due_date (ISO date) to tasks; existing routes and clients must keep working

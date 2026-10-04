@@ -18,7 +18,8 @@ run("bun", ["--version"]);
 
 step("Dependencies");
 if (!run("bun", ["install"])) fail("bun install failed");
-if (existsSync("template/package.json") && !run("bun", ["install"], { cwd: "template" })) fail("bun install in template/ failed");
+for (const dir of ["template", "examples/sample-existing-api"])
+  if (existsSync(`${dir}/package.json`) && !run("bun", ["install"], { cwd: dir })) fail(`bun install in ${dir}/ failed`);
 
 step("harness command");
 if (run("npm", ["link"])) console.log("✔ harness is on your PATH (npm link)");

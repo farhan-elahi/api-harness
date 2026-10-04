@@ -7,6 +7,7 @@ import { assemble } from "../scripts/fixture.ts";
 import { rootOf, run, runWithBaseline, seed } from "./loop.ts";
 import { formatReport, runChecks } from "./runner.ts";
 import { redact } from "./sdk.ts";
+import { assertClean, ship, stripExample } from "./ship.ts";
 import { loadTask } from "./task.ts";
 
 const USAGE = `usage:
@@ -33,19 +34,35 @@ try {
   }
   if (values.baseline && values["with-baseline"]) throw new Error("use --baseline or --with-baseline, not both");
   const opts = { task, driver: values.driver, repo: values.repo, maxTurns: Number(values["max-turns"]) || undefined, maxTokens: Number(values["max-tokens"]) || undefined };
-  if (loadTask(task).fields.mode === "create") seed(rootOf(loadTask(task), values.repo));
+  const t = loadTask(task);
+  assertClean(rootOf(t, values.repo));
+  if (t.fields.mode === "create") seed(rootOf(t, values.repo));
   const say =(r: Awaited<ReturnType<typeof run>>) =>
     console.log(redact(`\n[${r.mode}] ${r.completed ? `done: ${r.final}` : `FAILED: ${r.reason}`}\nproject: ${r.root}\nlog: runs/${r.run_id}/\ntokens: ${r.tokens} (input ${r.report.total_input_tokens})`));
+  // After the stop-gate is green: strip the template's example (create mode), re-prove, then ship. Exit 0 only if shipped.
+  const deliver = async (r: Awaited<ReturnType<typeof run>>) => {
+    if (!r.completed) return false;
+    if (r.mode === "baseline") return true; // a measurement, never shipped
+    if (t.fields.mode === "create") {
+      const s = await stripExample(r.root, t.fields);
+      console.log(s.ok ? `example removed: ${s.changed.join(", ") || "none"}` : `FAILED: ${s.reason}`);
+      if (!s.ok) return false;
+    }
+    const body = `Task: ${t.path}\nRun: runs/${r.run_id}/ (driver ${r.driver}, ${r.turns.length} turns)\nTokens: ${r.tokens}\nGates: stop-gate green (tests pass, harness check 100%).`;
+    const s = ship({ root: r.root, task: t.name, title: `harness: ${t.name}`, body, extra: [r.tokens] });
+    console.log(redact(`ship: ${s.message}`));
+    return s.status === "shipped" || s.status === "skipped";
+  };
   if (values["with-baseline"]) {
     const { actual, baseline, report } = await runWithBaseline(opts);
     say(baseline);
     say(actual);
     console.log(`reduction: ${report.reduction_pct}% (${report.baseline?.total_input_tokens} -> ${report.total_input_tokens} input tokens)`);
-    process.exit(actual.completed && baseline.completed ? 0 : 1);
+    process.exit(baseline.completed && (await deliver(actual)) ? 0 : 1);
   }
   const r = await run({ ...opts, mode: values.baseline ? "baseline" : "actual" });
   say(r);
-  process.exit(r.completed ? 0 : 1);
+  process.exit((await deliver(r)) ? 0 : 1);
 } catch (e) {
   console.error(redact(`error: ${(e as Error).message}`));
   process.exit(1);
