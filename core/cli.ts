@@ -2,7 +2,7 @@
 // harness run <task> --driver <name> [--repo <path>] [--max-turns N] [--max-tokens N] [--baseline | --with-baseline]
 // harness check --api <dir> [--task <file>]
 import { parseArgs } from "node:util";
-import { run, runWithBaseline } from "./loop.ts";
+import { rootOf, run, runWithBaseline, seed } from "./loop.ts";
 import { formatReport, runChecks } from "./runner.ts";
 import { redact } from "./sdk.ts";
 import { loadTask } from "./task.ts";
@@ -29,7 +29,8 @@ try {
   }
   if (values.baseline && values["with-baseline"]) throw new Error("use --baseline or --with-baseline, not both");
   const opts = { task, driver: values.driver, repo: values.repo, maxTurns: Number(values["max-turns"]) || undefined, maxTokens: Number(values["max-tokens"]) || undefined };
-  const say = (r: Awaited<ReturnType<typeof run>>) =>
+  if (loadTask(task).fields.mode === "create") seed(rootOf(loadTask(task), values.repo));
+  const say =(r: Awaited<ReturnType<typeof run>>) =>
     console.log(redact(`\n[${r.mode}] ${r.completed ? `done: ${r.final}` : `FAILED: ${r.reason}`}\nproject: ${r.root}\nlog: runs/${r.run_id}/\ntokens: ${r.tokens} (input ${r.report.total_input_tokens})`));
   if (values["with-baseline"]) {
     const { actual, baseline, report } = await runWithBaseline(opts);

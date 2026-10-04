@@ -1,5 +1,5 @@
 // The agent loop: send -> run tool calls -> append results -> repeat until the model stops calling tools.
-import { appendFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
+import { appendFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { compact, openingMessage, systemPrompt, type Mode } from "./context.ts";
@@ -23,8 +23,17 @@ export type RunOptions = {
 const HARD_CAP = 500; // NOTE: safety net only; turn/token limits belong to hooks.
 const num = (v: unknown) => (typeof v === "number" && v > 0 ? v : undefined);
 
-const rootOf = (task: Task, repo?: string) =>
+export const rootOf = (task: Task, repo?: string) =>
   resolve(repo ?? (typeof task.fields.target === "string" ? task.fields.target : join("generated", task.name)));
+
+// Create mode starts from template/ (minus node_modules), then installs deps. Refuses a non-empty target.
+export function seed(root: string, opts: { template?: string; install?: boolean } = {}) {
+  if (existsSync(root) && readdirSync(root).length > 0) throw new Error(`refusing to seed: ${root} is not empty (delete it or pick another --repo)`);
+  cpSync(resolve(opts.template ?? "template"), root, { recursive: true, filter: (src) => !/\/node_modules(\/|$)/.test(src) });
+  if (opts.install === false) return;
+  const r = Bun.spawnSync(["bun", "install"], { cwd: root, stdout: "inherit", stderr: "inherit" });
+  if (r.exitCode !== 0) throw new Error(`bun install failed in ${root}`);
+}
 
 export async function run(opts: RunOptions) {
   const task = loadTask(opts.task);
