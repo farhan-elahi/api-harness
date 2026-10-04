@@ -1,6 +1,6 @@
 // One allow + one block case per shipped hook, called directly with a hook context. Offline.
 import { test, expect } from "bun:test";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { assemble } from "../../scripts/fixture.ts";
@@ -11,6 +11,7 @@ import pathGuard from "./path-guard.ts";
 import stopGate from "./stop-gate.ts";
 import postWriteFeedback from "./post-write-feedback.ts";
 import tddGate from "./tdd-gate.ts";
+import readLoopGuard, { nextStep } from "./read-loop-guard.ts";
 import { loadTask } from "../../core/task.ts";
 
 const T = 120_000;
@@ -26,6 +27,8 @@ test("path-guard: allows a path inside root; blocks escapes, .env, keys, .git/",
   expect(before(pathGuard, ctx(root, { call: write(".env.example") }))).toEqual({ allow: true });
   for (const p of ["../x.ts", "/etc/passwd", ".env", ".env.local", "id.pem", "a.key", ".git/config"])
     expect(before(pathGuard, ctx(root, { call: write(p) }))).toHaveProperty("block");
+  expect(before(pathGuard, ctx(root, { call: write("node_modules/drizzle-orm/package.json") }))).toMatchObject({ block: expect.stringContaining("node_modules") });
+  expect(before(pathGuard, ctx(root, { call: { id: "1", name: "read_file", input: { path: "node_modules/x/package.json" } } }))).toEqual({ allow: true });
 });
 
 test("budget-guard: allows within budget; stops over turns or tokens", () => {
@@ -139,4 +142,28 @@ test("edit_file: exact single match only; goes through the same hooks as write_f
   expect(before(noDelete, ctx(root, { call: call({ path: "a.ts", old: "const a = 1;\nconst b = 2;\n", new: "" }) }))).toMatchObject({ block: expect.stringContaining("emptying") });
   expect(before(pathGuard, ctx(root, { call: call({ path: ".env", old: "a", new: "b" }) }))).toMatchObject({ block: expect.any(String) });
   expect(before(tddGate, ctx(root, { call: call({ path: "src/x.ts", old: "a", new: "b" }) }))).toMatchObject({ block: expect.stringContaining("no failing test") });
+});
+
+test("read-loop-guard: Next line follows disk + run state", () => {
+  const root = mkdtempSync(join(tmpdir(), "harness-"));
+  const task = { resource: "notes" };
+  const m = { testsOk: false, testFailures: ["FAIL x"], verdict: 40, failingChecks: ["  auth  FAIL  src/a.ts:3 no auth"] };
+  expect(nextStep(root, task, false, m)).toBe("Next: write test/notes.test.ts");
+  mkdirSync(join(root, "test"));
+  writeFileSync(join(root, "test/notes.test.ts"), "");
+  expect(nextStep(root, task, false, m)).toBe("Next: run_tests");
+  expect(nextStep(root, task, true, m)).toBe("Next: implement in src/ with edit_file/write_file");
+  expect(nextStep(root, task, true, { ...m, testsOk: true })).toBe("Next: fix auth  FAIL  src/a.ts:3 no auth");
+});
+
+test("read-loop-guard: blocks reads after 5 turns with no write/edit/run_tests; progress resets it", async () => {
+  const root = mkdtempSync(join(tmpdir(), "harness-"));
+  const c = ctx(root, { task: { resource: "notes" } });
+  const read = (turn: number, name = "read_file") => readLoopGuard.beforeTool!({ ...c, turn, call: { id: "1", name, input: { path: "a.ts" } } });
+  for (let t = 1; t <= 5; t++) expect(await read(t)).toEqual({ allow: true });
+  for (const name of ["read_file", "list_files", "get_route"]) expect(await read(6, name)).toEqual({ block: "Stop reading. Next: write test/notes.test.ts" });
+  expect(await readLoopGuard.beforeTool!({ ...c, turn: 6, call: write("test/notes.test.ts") })).toEqual({ allow: true }); // writes aren't blocked
+  readLoopGuard.afterTool!({ ...c, turn: 6, call: write("test/notes.test.ts"), output: "wrote" });
+  expect(await read(7)).toEqual({ allow: true });
+  expect(await read(12)).toHaveProperty("block");
 });

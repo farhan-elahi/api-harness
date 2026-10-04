@@ -1,7 +1,9 @@
 #!/usr/bin/env bun
 // harness run <task> --driver <name> [--repo <path>] [--max-turns N] [--max-tokens N] [--baseline | --with-baseline]
 // harness check --api <dir> [--task <file>]
+import { basename, dirname, resolve } from "node:path";
 import { parseArgs } from "node:util";
+import { assemble } from "../scripts/fixture.ts";
 import { rootOf, run, runWithBaseline, seed } from "./loop.ts";
 import { formatReport, runChecks } from "./runner.ts";
 import { redact } from "./sdk.ts";
@@ -19,7 +21,9 @@ const [cmd, task] = positionals;
 
 try {
   if (cmd === "check" && values.api) {
-    const report = await runChecks(values.api, values.task ? loadTask(values.task).fields : {});
+    // fixtures/<name> is an overlay on template/; check the assembled API, not the bare overlay.
+    const api = dirname(resolve(values.api)) === resolve(import.meta.dir, "../fixtures") ? assemble(basename(values.api)) : values.api;
+    const report = await runChecks(api, values.task ? loadTask(values.task).fields : {});
     console.log(formatReport(report));
     process.exit(report.verdict === 100 ? 0 : 1);
   }

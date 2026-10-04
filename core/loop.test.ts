@@ -7,6 +7,8 @@ import { scripted } from "../drivers/fake.ts";
 import { loadHooks } from "./hooks.ts";
 import { run, seed } from "./loop.ts";
 import type { Message } from "./sdk.ts";
+import { runTests } from "./runner.ts";
+import { spawnSync } from "node:child_process";
 
 const setup = (taskYaml = "mode: create\nwhatever: kept\n") => {
   const dir = mkdtempSync(join(tmpdir(), "harness-"));
@@ -83,3 +85,12 @@ test("loop guard: 3 identical replies in a row stop the run as failed (loop)", a
   expect(r.reason).toStartWith("loop");
   expect(r.turns).toHaveLength(3);
 });
+
+test("a freshly seeded + installed template passes its own tests and tsc", () => {
+  const root = join(setup().dir, "seeded");
+  seed(root);
+  expect(runTests(root)).toMatchObject({ ok: true, failures: [] });
+  const tsc = spawnSync(join(root, "node_modules/.bin/tsc"), ["--noEmit"], { cwd: root, encoding: "utf8" });
+  expect(tsc.stdout + tsc.stderr).toBe("");
+  expect(tsc.status).toBe(0);
+}, 300_000);

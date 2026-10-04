@@ -8,7 +8,7 @@ import { loadDriver, loadTools } from "./loader.ts";
 import { loadChecks } from "./runner.ts";
 import { loadTask, type Task } from "./task.ts";
 import { compare, taskHash, tokenReport, turnTokens, writeTokens, type TurnTokens } from "./tokens.ts";
-import { redact, type Driver, type Hook, type HookContext, type Message, type ToolResult } from "./sdk.ts";
+import { redact, type Driver, type Hook, type HookContext, type Measured, type Message, type ToolResult } from "./sdk.ts";
 
 export type RunOptions = {
   task: string;
@@ -60,14 +60,17 @@ export async function run(opts: RunOptions) {
   console.log(`fixed cost [${mode}]: system ${fixed.system} + tools ${fixed.tools} = ${fixed.total} tokens (est.)`);
   const messages: Message[] = [{ role: "user", text: openingMessage(task.path, task.text) }];
   const started = mtimes(root);
-  let state = { key: undefined as string | undefined, text: "" }; // state note, rebuilt only when disk changed
-  const extra = async () => {
+  let state: { key?: string; text: string; measured?: Measured } = { text: "" }; // state note, rebuilt only when disk changed
+  const extra = async (turn: number) => {
     if (mode === "baseline") return projectDump(root).trimStart();
     if (!dropsTurns(mode, messages)) return "";
     const changed = changedSince(root, started);
     const key = changed.map((f) => `${f}@${statSync(join(root, f)).mtimeMs}`).join("|");
-    if (key !== state.key) state = { key, text: await stateNote(root, task.fields, changed) };
-    return state.text;
+    if (key !== state.key) state = { key, ...(await stateNote(root, task.fields, changed)) };
+    // Hook lines are rebuilt every turn (cheap; they read run state), the measured part only when disk changed.
+    const measured = state.measured!;
+    const lines = hooks.map((h) => h.state?.({ ...ctx(turn), measured })).filter(Boolean);
+    return [state.text, ...lines].join("\n");
   };
   let retries = 0;
   const recent: string[] = []; // loop guard: signatures of the last replies
@@ -93,7 +96,7 @@ export async function run(opts: RunOptions) {
   };
 
   for (let turn = 1; turn <= HARD_CAP && !failure; turn++) {
-    const reply = await driver.send(system, view(mode, messages, await extra()), specs);
+    const reply = await driver.send(system, view(mode, messages, await extra(turn)), specs);
     usage.input += reply.usage.input;
     usage.output += reply.usage.output;
     turns.push(turnTokens(turn, reply.usage));
