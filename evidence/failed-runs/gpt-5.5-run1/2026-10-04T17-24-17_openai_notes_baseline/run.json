@@ -1,0 +1,80 @@
+{
+  "run_id": "2026-10-04T17-24-17_openai_notes_baseline",
+  "driver": "openai",
+  "task": "tasks/notes.yaml",
+  "mode": "baseline",
+  "root": "/var/folders/72/181378bs1znfs91r7d9x_dgw0000gn/T/harness-baseline-rBTvVE",
+  "turns": [
+    {
+      "turn": 1,
+      "input_tokens": 4709,
+      "output_tokens": 70,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    {
+      "turn": 2,
+      "input_tokens": 5063,
+      "output_tokens": 1127,
+      "cache_read_tokens": 3712,
+      "cache_write_tokens": 0
+    },
+    {
+      "turn": 3,
+      "input_tokens": 6236,
+      "output_tokens": 674,
+      "cache_read_tokens": 4736,
+      "cache_write_tokens": 0
+    },
+    {
+      "turn": 4,
+      "input_tokens": 7526,
+      "output_tokens": 22,
+      "cache_read_tokens": 3712,
+      "cache_write_tokens": 0
+    },
+    {
+      "turn": 5,
+      "input_tokens": 7640,
+      "output_tokens": 1283,
+      "cache_read_tokens": 6784,
+      "cache_write_tokens": 0
+    },
+    {
+      "turn": 6,
+      "input_tokens": 10025,
+      "output_tokens": 267,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    {
+      "turn": 7,
+      "input_tokens": 10396,
+      "output_tokens": 22,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    {
+      "turn": 8,
+      "input_tokens": 10434,
+      "output_tokens": 13,
+      "cache_read_tokens": 9856,
+      "cache_write_tokens": 0
+    }
+  ],
+  "usage": {
+    "input": 62029,
+    "output": 3478
+  },
+  "fixed_cost": {
+    "system": 700,
+    "tools": 248,
+    "total": 948
+  },
+  "retries": 0,
+  "final": "",
+  "status": "failed",
+  "reason": "budget-guard: over budget: tool calls on the last of 8 turns",
+  "completed": false,
+  "tokens": "/Users/farhanelahi/Documents/api-harness/tokens/2026-10-04T17-24-17_openai_notes_baseline.json"
+}
