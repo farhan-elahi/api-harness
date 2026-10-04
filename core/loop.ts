@@ -1,8 +1,8 @@
 // The agent loop: send -> run tool calls -> append results -> repeat until the model stops calling tools.
-import { appendFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, symlinkSync, writeFileSync } from "node:fs";
+import { appendFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { compact, openingMessage, systemPrompt, type Mode } from "./context.ts";
+import { changedSince, dropsTurns, fixedCost, openingMessage, projectDump, stateNote, systemPrompt, view, type Mode } from "./context.ts";
 import { loadHooks, runHooks, type HookPoint } from "./hooks.ts";
 import { loadDriver, loadTools } from "./loader.ts";
 import { loadChecks } from "./runner.ts";
@@ -17,7 +17,7 @@ export type RunOptions = {
   maxTurns?: number;
   maxTokens?: number;
   hooks?: Hook[]; // default: everything in plugins/hooks/
-  mode?: Mode; // actual (default): JIT tools, rule index, compaction. baseline: none of that.
+  mode?: Mode; // actual (default): JIT tools, rule index, history window. baseline: none of that (docs/design.md).
   tokensDir?: string; // default: tokens/
 };
 const HARD_CAP = 500; // NOTE: safety net only; turn/token limits belong to hooks.
@@ -55,8 +55,22 @@ export async function run(opts: RunOptions) {
   const tools = mode === "baseline" ? allTools.filter((t) => !t.jit) : allTools;
   const byName = new Map(tools.map((t) => [t.name, t]));
   const specs = tools.map(({ name, description, input }) => ({ name, description, input }));
-  const system = systemPrompt(mode, checks);
-  const messages: Message[] = [{ role: "user", text: openingMessage(mode, task.path, task.text, root) }];
+  const system = systemPrompt(mode, checks, root);
+  const fixed = fixedCost(system, specs);
+  console.log(`fixed cost [${mode}]: system ${fixed.system} + tools ${fixed.tools} = ${fixed.total} tokens (est.)`);
+  const messages: Message[] = [{ role: "user", text: openingMessage(task.path, task.text) }];
+  const started = Date.now() - 1;
+  let state = { key: undefined as string | undefined, text: "" }; // state note, rebuilt only when disk changed
+  const extra = async () => {
+    if (mode === "baseline") return projectDump(root).trimStart();
+    if (!dropsTurns(mode, messages)) return "";
+    const changed = changedSince(root, started);
+    const key = changed.map((f) => `${f}@${statSync(join(root, f)).mtimeMs}`).join("|");
+    if (key !== state.key) state = { key, text: await stateNote(root, task.fields, changed) };
+    return state.text;
+  };
+  const recent: string[] = []; // loop guard: signatures of the last replies
+  const LOOP = 3;
   const turns: TurnTokens[] = [];
   const usage = { input: 0, output: 0 };
   const limits = { maxTurns: opts.maxTurns ?? num(task.fields.max_turns), maxTokens: opts.maxTokens ?? num(task.fields.max_tokens) };
@@ -78,14 +92,19 @@ export async function run(opts: RunOptions) {
   };
 
   for (let turn = 1; turn <= HARD_CAP && !failure; turn++) {
-    if (mode === "actual") compact(messages);
-    const reply = await driver.send(system, messages, specs);
+    const reply = await driver.send(system, view(mode, messages, await extra()), specs);
     usage.input += reply.usage.input;
     usage.output += reply.usage.output;
     turns.push(turnTokens(turn, reply.usage));
     messages.push({ role: "assistant", text: reply.text, toolCalls: reply.toolCalls, raw: reply.raw });
     log({ turn, text: reply.text, toolCalls: reply.toolCalls, usage: reply.usage, stop: reply.stop });
     console.log(`turn ${turn}: in=${reply.usage.input} out=${reply.usage.output} ${reply.toolCalls.map((c) => c.name).join(", ") || "(no tools)"}`);
+    recent.push(JSON.stringify([reply.text, reply.toolCalls.map(({ name, input }) => [name, input])]));
+    if (recent.length >= LOOP && recent.slice(-LOOP).every((s) => s === recent.at(-1))) {
+      failure = `loop: ${LOOP} identical replies in a row`;
+      log({ turn, stop: failure });
+      break;
+    }
 
     if (reply.toolCalls.length === 0) {
       if (reply.stop === "pause") continue;
@@ -129,7 +148,7 @@ export async function run(opts: RunOptions) {
   const status = failure ? "failed" : "done";
   const tokens = tokenReport({ run_id: runId, driver: driverName, task: task.path, task_hash: taskHash(task.text), mode }, turns);
   const tokensPath = writeTokens(tokens, opts.tokensDir);
-  const summary = { run_id: runId, driver: driverName, task: task.path, mode, root, turns, usage, final, status, reason: failure, completed: !failure, tokens: tokensPath };
+  const summary = { run_id: runId, driver: driverName, task: task.path, mode, root, turns, usage, fixed_cost: fixed, final, status, reason: failure, completed: !failure, tokens: tokensPath };
   writeFileSync(join(runDir, "run.json"), redact(JSON.stringify(summary, null, 2)));
   return { ...summary, report: tokens };
 }

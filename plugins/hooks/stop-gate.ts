@@ -11,6 +11,6 @@ export default defineHook({
     const red = formatReport(report).split("\n").filter((l) => /\b(FAIL|UNPROVEN)\b/.test(l));
     if (tests.ok && report.verdict === 100) return allow;
     const rules = report.rules.filter((r) => (r.status === "FAIL" || r.status === "UNPROVEN") && r.rule).map((r) => `rule ${r.name}: ${r.rule}`);
-    return block(["not done yet. Fix these, then finish:", ...tests.failures, ...red, `verdict ${report.verdict}%`, ...rules].join("\n"));
+    return block(["Not done.", ...tests.failures, ...red, `verdict ${report.verdict}%`, ...rules, "Fix with edit_file, then run_tests."].join("\n"));
   },
 });

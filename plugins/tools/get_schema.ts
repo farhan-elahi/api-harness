@@ -9,7 +9,7 @@ const TABLE_FNS = /^(sqliteTable|pgTable|mysqlTable)$/;
 export default defineTool({
   name: "get_schema",
   jit: true,
-  description: "Definition of one DB table (by SQL name or variable name). Omit `table` to list table names.",
+  description: "One DB table definition; omit table to list.",
   input: { type: "object", properties: { table: { type: "string" } } },
   run: (input, { root }) => {
     const tables = appFiles(project(root))

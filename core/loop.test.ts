@@ -73,3 +73,13 @@ test("create mode seeds from template/ without node_modules; a non-empty target 
   expect(existsSync(join(root, "node_modules"))).toBe(false);
   expect(() => seed(root, { install: false })).toThrow(/not empty/);
 });
+
+test("loop guard: 3 identical replies in a row stop the run as failed (loop)", async () => {
+  const { task, repo, tokensDir } = setup();
+  const same = { text: "I am done.", toolCalls: [] };
+  const block = { name: "nope", beforeStop: () => ({ block: "Not done." }) };
+  const r = await run({ task, driver: scripted([same, same, same, same]), repo, tokensDir, hooks: [block] });
+  expect(r).toMatchObject({ completed: false, status: "failed" });
+  expect(r.reason).toStartWith("loop");
+  expect(r.turns).toHaveLength(3);
+});

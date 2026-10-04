@@ -3,6 +3,7 @@
 import { appendFileSync, existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { allow, block, defineHook } from "../../core/sdk.ts";
+import { isWrite } from "./_write.ts";
 
 const LOG = "tdd-red.jsonl";
 const isSource = (p: string) => /^src\/.+\.ts$/.test(p) && !/\.(test|d)\.ts$/.test(p);
@@ -17,7 +18,7 @@ function lastObserved(runDir: string): "red" | "green" | "none" {
 export default defineHook({
   name: "tdd-gate",
   beforeTool: ({ call, runDir }) => {
-    const p = typeof call?.input.path === "string" && "content" in call.input ? call.input.path.replace(/^\.\//, "") : "";
+    const p = isWrite(call) ? String(call!.input.path).replace(/^\.\//, "") : "";
     if (!isSource(p) || lastObserved(runDir) === "red") return allow;
     return block(`no failing test observed since the last green run. Write a test for ${p}, run_tests, and see it fail first.`);
   },

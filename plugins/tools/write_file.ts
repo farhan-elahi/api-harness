@@ -4,7 +4,7 @@ import { defineTool, inRoot } from "../../core/sdk.ts";
 
 export default defineTool({
   name: "write_file",
-  description: "Create or overwrite a file with the full given content. Parent dirs are created.",
+  description: "Create or overwrite a whole file.",
   input: {
     type: "object",
     properties: { path: { type: "string" }, content: { type: "string" } },
