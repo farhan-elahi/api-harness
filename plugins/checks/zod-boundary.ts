@@ -9,6 +9,9 @@ const isZod = (n: Node | undefined) => !!n && /\bZod[A-Z]\w*/.test(n.getType().g
 export default defineCheck({
   name: "zod-boundary",
   unit: "handlers",
+  rule: `Every input is validated with Zod and every response is parsed with Zod.
+Params, query and JSON bodies go through validate(target, Schema) middleware and are read with c.req.valid(); never raw c.req.param()/query()/json().
+Response bodies are produced by Schema.parse(). Types come from z.infer<typeof Schema>; no hand-written duplicate types.`,
   run: ({ ast }) => {
     const p = ast();
     const h = hono(p);

@@ -8,6 +8,9 @@ const AUTH = /^(authenticate|requireAuth|auth|bearerAuth|jwt)$/;
 export default defineCheck({
   name: "auth",
   unit: "routes",
+  rule: `Every route is behind auth middleware, unless allowlisted as public.
+Register the auth middleware with app.use()/router.use() before the routes it guards.
+A public route goes in the auth middleware's \`public: ["METHOD /path"]\` option; nothing else is exempt.`,
   run: ({ ast }) => {
     const h = hono(ast());
     // Public allowlist: string literals in the `public: [...]` option of any auth middleware call.

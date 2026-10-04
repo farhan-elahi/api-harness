@@ -1,14 +1,14 @@
 // The agent loop: send -> run tool calls -> append results -> repeat until the model stops calling tools.
-import { mkdirSync, appendFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { compact, openingMessage, systemPrompt, type Mode } from "./context.ts";
 import { loadHooks, runHooks, type HookPoint } from "./hooks.ts";
 import { loadDriver, loadTools } from "./loader.ts";
-import { loadTask } from "./task.ts";
+import { loadChecks } from "./runner.ts";
+import { loadTask, type Task } from "./task.ts";
+import { compare, taskHash, tokenReport, turnTokens, writeTokens, type TurnTokens } from "./tokens.ts";
 import { redact, type Driver, type Hook, type HookContext, type Message, type ToolResult } from "./sdk.ts";
-
-const SYSTEM =
-  "You are a coding agent working inside one project directory. Use the tools to inspect and write files. " +
-  "Read only what you need. Paths are relative to the project root. When the task is complete, reply with a one-line summary and no tool calls.";
 
 export type RunOptions = {
   task: string;
@@ -17,29 +17,38 @@ export type RunOptions = {
   maxTurns?: number;
   maxTokens?: number;
   hooks?: Hook[]; // default: everything in plugins/hooks/
+  mode?: Mode; // actual (default): JIT tools, rule index, compaction. baseline: none of that.
+  tokensDir?: string; // default: tokens/
 };
 const HARD_CAP = 500; // NOTE: safety net only; turn/token limits belong to hooks.
 const num = (v: unknown) => (typeof v === "number" && v > 0 ? v : undefined);
 
+const rootOf = (task: Task, repo?: string) =>
+  resolve(repo ?? (typeof task.fields.target === "string" ? task.fields.target : join("generated", task.name)));
+
 export async function run(opts: RunOptions) {
   const task = loadTask(opts.task);
-  const root = resolve(opts.repo ?? (typeof task.fields.target === "string" ? task.fields.target : join("generated", task.name)));
+  const mode = opts.mode ?? "actual";
+  const root = rootOf(task, opts.repo);
   const driverName = typeof opts.driver === "string" ? opts.driver : "custom";
-  const runId = `${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}_${driverName}_${task.name}`;
+  const runId = `${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}_${driverName}_${task.name}${mode === "baseline" ? "_baseline" : ""}`;
   const runDir = resolve("runs", runId);
   const log = (e: object) => appendFileSync(join(runDir, "transcript.jsonl"), redact(JSON.stringify(e)) + "\n");
 
-  const [driver, tools, hooks] = await Promise.all([
+  const [driver, allTools, hooks, checks] = await Promise.all([
     typeof opts.driver === "string" ? loadDriver(opts.driver) : opts.driver,
     loadTools(),
     opts.hooks ?? loadHooks(),
+    loadChecks(),
   ]);
   mkdirSync(root, { recursive: true });
   mkdirSync(runDir, { recursive: true });
+  const tools = mode === "baseline" ? allTools.filter((t) => !t.jit) : allTools;
   const byName = new Map(tools.map((t) => [t.name, t]));
   const specs = tools.map(({ name, description, input }) => ({ name, description, input }));
-  const messages: Message[] = [{ role: "user", text: `Task file ${task.path}:\n\n${task.text}` }];
-  const turns: { turn: number; input_tokens: number; output_tokens: number }[] = [];
+  const system = systemPrompt(mode, checks);
+  const messages: Message[] = [{ role: "user", text: openingMessage(mode, task.path, task.text, root) }];
+  const turns: TurnTokens[] = [];
   const usage = { input: 0, output: 0 };
   const limits = { maxTurns: opts.maxTurns ?? num(task.fields.max_turns), maxTokens: opts.maxTokens ?? num(task.fields.max_tokens) };
   const ctx = (turn: number, extra: Partial<HookContext> = {}): HookContext => ({ root, runDir, task: task.fields, turn, usage: { ...usage }, limits, ...extra });
@@ -60,10 +69,11 @@ export async function run(opts: RunOptions) {
   };
 
   for (let turn = 1; turn <= HARD_CAP && !failure; turn++) {
-    const reply = await driver.send(SYSTEM, messages, specs);
+    if (mode === "actual") compact(messages);
+    const reply = await driver.send(system, messages, specs);
     usage.input += reply.usage.input;
     usage.output += reply.usage.output;
-    turns.push({ turn, input_tokens: reply.usage.input, output_tokens: reply.usage.output });
+    turns.push(turnTokens(turn, reply.usage));
     messages.push({ role: "assistant", text: reply.text, toolCalls: reply.toolCalls, raw: reply.raw });
     log({ turn, text: reply.text, toolCalls: reply.toolCalls, usage: reply.usage, stop: reply.stop });
     console.log(`turn ${turn}: in=${reply.usage.input} out=${reply.usage.output} ${reply.toolCalls.map((c) => c.name).join(", ") || "(no tools)"}`);
@@ -108,7 +118,25 @@ export async function run(opts: RunOptions) {
 
   if (!final && !failure) failure = `hard cap of ${HARD_CAP} turns`;
   const status = failure ? "failed" : "done";
-  const summary = { run_id: runId, driver: driverName, task: task.path, root, turns, usage, final, status, reason: failure, completed: !failure };
+  const tokens = tokenReport({ run_id: runId, driver: driverName, task: task.path, task_hash: taskHash(task.text), mode }, turns);
+  const tokensPath = writeTokens(tokens, opts.tokensDir);
+  const summary = { run_id: runId, driver: driverName, task: task.path, mode, root, turns, usage, final, status, reason: failure, completed: !failure, tokens: tokensPath };
   writeFileSync(join(runDir, "run.json"), redact(JSON.stringify(summary, null, 2)));
-  return summary;
+  return { ...summary, report: tokens };
+}
+
+// --with-baseline: same task + driver, baseline first on a snapshot of the starting project (so the two runs
+// don't see each other's files), then the actual run. One combined report at tokens/<actual run_id>.json.
+export async function runWithBaseline(opts: RunOptions) {
+  const root = rootOf(loadTask(opts.task), opts.repo);
+  const snap = mkdtempSync(join(tmpdir(), "harness-baseline-"));
+  if (existsSync(root)) {
+    cpSync(root, snap, { recursive: true, filter: (src) => !/\/(node_modules|\.git)(\/|$)/.test(src) });
+    if (existsSync(join(root, "node_modules"))) symlinkSync(join(root, "node_modules"), join(snap, "node_modules"));
+  }
+  const baseline = await run({ ...opts, mode: "baseline", repo: snap });
+  const actual = await run({ ...opts, mode: "actual" });
+  const report = compare(actual.report, baseline.report);
+  writeTokens(report, opts.tokensDir);
+  return { actual, baseline, report };
 }

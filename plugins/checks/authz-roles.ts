@@ -7,6 +7,9 @@ const ROLES = new Set(["owner", "member", "viewer"]);
 export default defineCheck({
   name: "authz-roles",
   unit: "write routes",
+  rule: `Every write route (POST/PUT/PATCH/DELETE) calls requireRole() with known roles.
+Known roles: owner, member, viewer. Put requireRole("owner", ...) in the route's middleware chain before the handler.
+requireRole() with no roles, or an unknown role name, fails.`,
   run: ({ ast }) => {
     const h = hono(ast());
     const writes = h.routes.filter((r) => WRITE.has(r.method));

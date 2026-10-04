@@ -54,7 +54,13 @@ const create: DriverFactory = (cfg) => {
         toolCalls: (msg.tool_calls ?? []).flatMap((c) =>
           c.type === "function" ? [{ id: c.id, name: c.function.name, input: parseArgs(c.function.arguments) }] : [],
         ),
-        usage: { input: res.usage?.prompt_tokens ?? 0, output: res.usage?.completion_tokens ?? 0 },
+        // prompt_tokens already includes cached_tokens; providers cache automatically, so there is no write count.
+        usage: {
+          input: res.usage?.prompt_tokens ?? 0,
+          output: res.usage?.completion_tokens ?? 0,
+          cacheRead: res.usage?.prompt_tokens_details?.cached_tokens ?? 0,
+          cacheWrite: 0,
+        },
         stop: STOP[choice.finish_reason] ?? "end",
         raw: msg,
       };

@@ -13,7 +13,8 @@ export type Message =
   | { role: "assistant"; text: string; toolCalls: ToolCall[]; raw?: unknown }
   | { role: "tool"; results: ToolResult[] };
 
-export type Usage = { input: number; output: number };
+// From the provider's usage field, never estimated. `input` includes cache reads/writes; they are also shown apart.
+export type Usage = { input: number; output: number; cacheRead?: number; cacheWrite?: number };
 export type Reply = {
   text: string;
   toolCalls: ToolCall[];
@@ -32,6 +33,7 @@ export type DriverFactory = (config: Record<string, unknown>) => Driver;
 
 export type ToolContext = { root: string; runDir: string };
 export type Tool = ToolSpec & {
+  jit?: boolean; // a context fetcher; left out in --baseline runs
   run: (input: Record<string, unknown>, ctx: ToolContext) => Promise<string> | string;
 };
 
@@ -48,6 +50,7 @@ export type CheckContext = {
 export type Check = {
   name: string;
   unit: string; // what results count, e.g. "routes", "handlers"
+  rule?: string; // the rule's text. First line = one-line summary for the rule index; the rest is sent only on failure or get_rule.
   run: (ctx: CheckContext) => CheckResult[] | Promise<CheckResult[]>;
 };
 export const defineCheck = (c: Check): Check => c;
