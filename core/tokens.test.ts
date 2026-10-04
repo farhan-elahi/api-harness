@@ -150,3 +150,13 @@ test("JIT tools return one table, one route (+ its validator schemas), one rule"
   const getRoute = await tool("get_route");
   await expect(Promise.resolve().then(() => getRoute.run({ route: "GET /nope" }, c))).rejects.toThrow('no route "GET /nope"');
 }, T);
+
+test("compare with a turn limit: matching turns 1..N only, baseline marked capped", async () => {
+  const { compare, tokenReport } = await import("./tokens.ts");
+  const meta = { run_id: "r", driver: "d", task: "t", task_hash: "h" };
+  const tt = (ins: number[]) => ins.map((input_tokens, i) => ({ turn: i + 1, input_tokens, output_tokens: 0, cache_read_tokens: 0, cache_write_tokens: 0 }));
+  const r = compare(tokenReport({ ...meta, mode: "actual" }, tt([10, 10, 10, 10])), tokenReport({ ...meta, mode: "baseline" }, tt([40, 40])), { completed: false, limit: 2 });
+  expect(r.comparison!.map((c) => c.turn)).toEqual([1, 2]);
+  expect(r.reduction_pct).toBe(75);
+  expect(r.baseline).toMatchObject({ completed: false, turn_limit: 2 });
+});

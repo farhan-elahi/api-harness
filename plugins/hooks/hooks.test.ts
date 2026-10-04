@@ -85,20 +85,21 @@ test("tdd-gate: blocks src writes until run_tests is observed red; a later green
   expect(log[0].failures).toEqual(["FAIL test/slug.test.ts > lowercases: Cannot find module"]);
 });
 
-test("post-write-feedback: nothing extra for a clean file; only that file's tsc errors (max 10 lines)", () => {
+test("post-write-feedback: a src write gets a one-line test result; only that file's tsc errors (max 10 lines)", () => {
   const root = assemble("good-api");
   const after = (path: string, body: string) => {
     writeFileSync(join(root, path), body);
     return postWriteFeedback.afterTool!(ctx(root, { call: write(path, body), output: "wrote" }));
   };
-  expect(after("src/lib/ok.ts", "export const ok: number = 1;\n")).toEqual({ allow: true });
+  expect(after("src/lib/ok.ts", "export const ok: number = 1;\n")).toEqual({ note: expect.stringMatching(/^tests: \d+ passed$/) });
   after("src/lib/other.ts", "export const other: number = 'x';\n"); // error in another file
   const r = after("src/lib/bad.ts", Array.from({ length: 15 }, (_, i) => `export const v${i}: number = "s";`).join("\n"));
   const lines = (r as { note: string }).note.split("\n");
   expect(lines).toHaveLength(10);
-  expect(lines[0]).toBe("tsc errors:");
-  expect(lines[1]).toStartWith("src/lib/bad.ts:1:14 TS2322");
-  expect(lines.at(-1)).toBe("…7 more");
+  expect(lines[0]).toMatch(/^tests: /);
+  expect(lines[1]).toBe("tsc errors:");
+  expect(lines[2]).toStartWith("src/lib/bad.ts:1:14 TS2322");
+  expect(lines.at(-1)).toBe("…8 more");
   expect(lines.some((l) => l.includes("other.ts"))).toBe(false);
 }, T);
 
@@ -141,19 +142,23 @@ test("edit_file: exact single match only; goes through the same hooks as write_f
   const call = (input: Record<string, unknown>): ToolCall => ({ id: "1", name: "edit_file", input });
   expect(before(noDelete, ctx(root, { call: call({ path: "a.ts", old: "const a = 1;\nconst b = 2;\n", new: "" }) }))).toMatchObject({ block: expect.stringContaining("emptying") });
   expect(before(pathGuard, ctx(root, { call: call({ path: ".env", old: "a", new: "b" }) }))).toMatchObject({ block: expect.any(String) });
-  expect(before(tddGate, ctx(root, { call: call({ path: "src/x.ts", old: "a", new: "b" }) }))).toMatchObject({ block: expect.stringContaining("no failing test") });
+  expect(before(tddGate, ctx(root, { call: call({ path: "src/x.ts", old: "a", new: "b" }) }))).toMatchObject({ block: expect.stringContaining("Write a failing test first. Next: write test/") });
 });
 
-test("read-loop-guard: Next line follows disk + run state", () => {
+test("read-loop-guard: Next ladder follows disk + run state, first failure only", () => {
   const root = mkdtempSync(join(tmpdir(), "harness-"));
   const task = { resource: "notes" };
-  const m = { testsOk: false, testFailures: ["FAIL x"], verdict: 40, failingChecks: ["  auth  FAIL  src/a.ts:3 no auth"] };
-  expect(nextStep(root, task, false, m)).toBe("Next: write test/notes.test.ts");
+  const m = { testsOk: false, testFailures: ["FAIL test/notes.test.ts > notes > creates: expected 500 to be 201 (test/notes.test.ts:42)", "FAIL y"], verdict: 40, failingChecks: ["  auth  FAIL  src/a.ts:3 no auth"] };
+  expect(nextStep(root, task, false, m)).toBe("Next: write test/notes.test.ts copying test/_example.test.ts");
   mkdirSync(join(root, "test"));
   writeFileSync(join(root, "test/notes.test.ts"), "");
   expect(nextStep(root, task, false, m)).toBe("Next: run_tests");
-  expect(nextStep(root, task, true, m)).toBe("Next: implement in src/ with edit_file/write_file");
-  expect(nextStep(root, task, true, { ...m, testsOk: true })).toBe("Next: fix auth  FAIL  src/a.ts:3 no auth");
+  expect(nextStep(root, task, true, m)).toBe("Next: write src/routes/notes.ts copying src/routes/_example.ts, add table to schema.ts + migrations.ts, mount in app.ts");
+  mkdirSync(join(root, "src/routes"), { recursive: true });
+  writeFileSync(join(root, "src/routes/notes.ts"), "");
+  expect(nextStep(root, task, true, m)).toBe("Next: fix notes > creates: expected 500 to be 201 (test/notes.test.ts:42)");
+  expect(nextStep(root, task, true, { ...m, testsOk: true })).toBe("Next: fix auth at src/a.ts:3");
+  expect(nextStep(root, task, true, { ...m, testsOk: true, verdict: 100 })).toBe("Next: all green, reply done");
 });
 
 test("read-loop-guard: blocks reads after 5 turns with no write/edit/run_tests; progress resets it", async () => {
@@ -161,9 +166,53 @@ test("read-loop-guard: blocks reads after 5 turns with no write/edit/run_tests; 
   const c = ctx(root, { task: { resource: "notes" } });
   const read = (turn: number, name = "read_file") => readLoopGuard.beforeTool!({ ...c, turn, call: { id: "1", name, input: { path: "a.ts" } } });
   for (let t = 1; t <= 5; t++) expect(await read(t)).toEqual({ allow: true });
-  for (const name of ["read_file", "list_files", "get_route"]) expect(await read(6, name)).toEqual({ block: "Stop reading. Next: write test/notes.test.ts" });
+  for (const name of ["read_file", "list_files", "get_route"]) expect(await read(6, name)).toEqual({ block: "Stop reading. You already read these files. Next: write test/notes.test.ts copying test/_example.test.ts" });
   expect(await readLoopGuard.beforeTool!({ ...c, turn: 6, call: write("test/notes.test.ts") })).toEqual({ allow: true }); // writes aren't blocked
   readLoopGuard.afterTool!({ ...c, turn: 6, call: write("test/notes.test.ts"), output: "wrote" });
   expect(await read(7)).toEqual({ allow: true });
   expect(await read(12)).toHaveProperty("block");
 });
+
+// widgets: a resource the good-api fixture doesn't have. The test asks for POST /v1/widgets -> 201.
+async function widgetsRun(script: { text: string; toolCalls: ToolCall[] }[]) {
+  const { scripted } = await import("../../drivers/fake.ts");
+  const { run } = await import("../../core/loop.ts");
+  const task = join(mkdtempSync(join(tmpdir(), "harness-task-")), "widgets.yaml");
+  writeFileSync(task, "mode: change\nresource: widgets\nchange: add widgets\n");
+  const d = scripted([...script, { text: "done", toolCalls: [] }]);
+  const r = await run({ task, driver: d, repo: assemble("good-api"), hooks: [tddGate, postWriteFeedback, readLoopGuard], tokensDir: mkdtempSync(join(tmpdir(), "harness-tokens-")) });
+  const log = readFileSync(join("runs", r.run_id, "transcript.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
+  const next = (turn: number) => (log.find((e) => e.turn === turn && e.state)?.state as string).split("\n").find((l) => l.startsWith("Next:"));
+  return { log, next };
+}
+const widgetTest = `import { expect, it } from "vitest";\nimport { as } from "./helpers.ts";\nit("creates a widget", async () => expect((await as("w", "owner")("POST", "/v1/widgets", { name: "n" })).status).toBe(201));\n`;
+const brokenRoute = `import { Hono } from "hono";\nexport const widgets = new Hono();\n`;
+const step = (id: string, name: string, input: Record<string, unknown>) => ({ text: "", toolCalls: [{ id, name, input }] });
+const rd = (id: string) => step(id, "read_file", { path: "src/app.ts" });
+
+test("fake driver: route file exists + tests red -> Next names the failing test, not 'write src/routes'", async () => {
+  const { next } = await widgetsRun([
+    step("1", "write_file", { path: "test/widgets.test.ts", content: widgetTest }),
+    step("2", "run_tests", { files: ["test/widgets.test.ts"] }),
+    step("3", "write_file", { path: "src/routes/widgets.ts", content: brokenRoute }),
+    rd("4"), rd("5"),
+  ]);
+  expect(next(5)).toContain("Next: fix creates a widget: ");
+  expect(next(5)).toContain("test/widgets.test.ts:3");
+  expect(next(5)).not.toContain("write src/routes");
+}, 180_000);
+
+test("fake driver: a src write auto-runs the tests; the tool result and the state note carry fresh counts", async () => {
+  const { log, next } = await widgetsRun([
+    step("1", "write_file", { path: "test/widgets.test.ts", content: widgetTest }),
+    step("2", "run_tests", {}),
+    step("3", "write_file", { path: "src/routes/widgets.ts", content: brokenRoute }),
+    rd("4"), rd("5"),
+  ]);
+  const out = log.find((e) => e.turn === 3 && e.results)!.results[0].output as string;
+  expect(out).toMatch(/tests: \d+ passed, 1 failed: test\/widgets\.test\.ts:3 /);
+  const state = log.find((e) => e.turn === 5 && e.state)!.state as string;
+  expect(state).toContain("src/routes/widgets.ts"); // files changed includes the write
+  expect(state).toMatch(/tests: \d+ pass, 1 fail/);
+  expect(next(5)).toMatch(/^Next: fix creates a widget/);
+}, 180_000);

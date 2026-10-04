@@ -76,6 +76,15 @@ export function formatReport(r: Report): string {
 
 // Runs the API's own Vitest suite (optionally just some files). Short result: one line per failure.
 export type TestRun = { ok: boolean; total: number; failed: string[]; failures: string[]; passed: string[] }; // passed: "file > test name"
+// "5 passed, 2 failed: test/x.test.ts:42 expected 500 to be 201" (first failure only).
+export function brief(t: TestRun): string {
+  if (t.ok) return `${t.total} passed`;
+  const f = t.failures[0] ?? "";
+  const m = f.match(/^FAIL (\S+?)(?: > .*?)?: (.*?)(?: \((\S+:\d+)\))?$/);
+  const head = t.total ? `${t.total - t.failures.length} passed, ${t.failures.length} failed` : "0 passed";
+  return m ? `${head}: ${m[3] ?? m[1]} ${m[2]}` : `${head}: ${f}`;
+}
+
 export function runTests(apiDir: string, files: string[] = []): TestRun {
   const dir = existsSync(apiDir) ? realpathSync(apiDir) : resolve(apiDir); // vitest reports real paths (/var -> /private/var)
   const vitest = join(dir, "node_modules/.bin/vitest");
@@ -89,7 +98,9 @@ export function runTests(apiDir: string, files: string[] = []): TestRun {
   const failed = r.testResults.filter((t) => t.status === "failed").map((t) => relative(dir, t.name));
   const failures = r.testResults.flatMap((t) => {
     const file = relative(dir, t.name);
-    const asserts = t.assertionResults.filter((a) => a.status === "failed").map((a) => `FAIL ${file} > ${a.fullName}: ${first(a.failureMessages[0])}`);
+    // " (file:line)" from the stack, so the first failure can be pointed at without the full trace.
+    const at = (m: string | undefined) => (m?.match(new RegExp(`${file.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}:(\\d+)`)) ?? [])[1];
+    const asserts = t.assertionResults.filter((a) => a.status === "failed").map((a) => `FAIL ${file} > ${a.fullName}: ${first(a.failureMessages[0])}${at(a.failureMessages[0]) ? ` (${file}:${at(a.failureMessages[0])})` : ""}`);
     return asserts.length ? asserts : t.status === "failed" ? [`FAIL ${file}: ${first(t.message)}`] : [];
   });
   if (r.numTotalTests === 0 && !failures.length) failures.push("UNPROVEN no tests ran");

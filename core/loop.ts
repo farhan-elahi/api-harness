@@ -19,6 +19,7 @@ export type RunOptions = {
   hooks?: Hook[]; // default: everything in plugins/hooks/
   mode?: Mode; // actual (default): JIT tools, rule index, history window. baseline: none of that (docs/design.md).
   tokensDir?: string; // default: tokens/
+  baselineTurns?: number; // --with-baseline: cap the baseline at N turns (default 8); the report compares turns 1..N
 };
 const HARD_CAP = 500; // NOTE: safety net only; turn/token limits belong to hooks.
 const num = (v: unknown) => (typeof v === "number" && v > 0 ? v : undefined);
@@ -70,7 +71,9 @@ export async function run(opts: RunOptions) {
     // Hook lines are rebuilt every turn (cheap; they read run state), the measured part only when disk changed.
     const measured = state.measured!;
     const lines = hooks.map((h) => h.state?.({ ...ctx(turn), measured })).filter(Boolean);
-    return [state.text, ...lines].join("\n");
+    const note = [state.text, ...lines].join("\n");
+    log({ turn, state: note });
+    return note;
   };
   let retries = 0;
   const recent: string[] = []; // loop guard: signatures of the last replies
@@ -168,9 +171,10 @@ export async function runWithBaseline(opts: RunOptions) {
     cpSync(root, snap, { recursive: true, filter: (src) => !/\/(node_modules|\.git)(\/|$)/.test(src) });
     if (existsSync(join(root, "node_modules"))) symlinkSync(join(root, "node_modules"), join(snap, "node_modules"));
   }
-  const baseline = await run({ ...opts, mode: "baseline", repo: snap });
+  const limit = opts.baselineTurns ?? 8;
+  const baseline = await run({ ...opts, mode: "baseline", repo: snap, maxTurns: limit });
   const actual = await run({ ...opts, mode: "actual" });
-  const report = compare(actual.report, baseline.report);
+  const report = compare(actual.report, baseline.report, { completed: baseline.completed, limit });
   writeTokens(report, opts.tokensDir);
   return { actual, baseline, report };
 }
