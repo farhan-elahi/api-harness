@@ -1,7 +1,7 @@
 // Proves the standards checks: good fixture = 100%, bad fixture fails exactly at its "✗ <rule>" markers.
 import { test, expect } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative, resolve } from "node:path";
 import { assemble } from "../scripts/fixture.ts";
@@ -9,6 +9,19 @@ import { formatReport, runChecks } from "./runner.ts";
 
 const RULES = ["auth", "authz-roles", "problem-json", "rest-conventions", "tsc-strict", "zod-boundary", "tenant-isolation"];
 const T = 120_000;
+
+// template/ minus its _example resource: no routes at all.
+function bareTemplate(): string {
+  const dir = mkdtempSync(join(tmpdir(), "harness-bare-"));
+  cpSync(resolve(import.meta.dir, "../template"), dir, { recursive: true, filter: (s) => !s.includes("node_modules") && !s.includes("_example") });
+  const app = join(dir, "src/app.ts");
+  writeFileSync(app, readFileSync(app, "utf8").replace(/^.*examples.*\n/gim, ""));
+  return dir;
+}
+
+test("template/ with its _example resource scores 100%", async () => {
+  expect((await runChecks(resolve(import.meta.dir, "../template"))).verdict).toBe(100);
+}, T);
 
 test("good fixture scores 100% on every rule, nothing UNPROVEN", async () => {
   const r = await runChecks(assemble("good-api"));
@@ -47,7 +60,7 @@ test("checks that cannot run print UNPROVEN and block 100%", async () => {
   expect(r.verdict).toBe(0);
   expect(formatReport(r)).toContain("UNPROVEN  no tsconfig.json");
 
-  const tpl = await runChecks(resolve(import.meta.dir, "../template"));
+  const tpl = await runChecks(bareTemplate());
   expect(tpl.rules.find((x) => x.name === "auth")?.status).toBe("UNPROVEN");
   expect(tpl.verdict).toBeLessThan(100);
 }, T);
@@ -71,15 +84,16 @@ test("tenant-isolation reads tenancy from the task: default, custom column, none
 
 test("authz-roles: routes but no writes passes 0/0; no routes at all is UNPROVEN", async () => {
   const dir = assemble("good-api");
-  const routes = join(dir, "src/routes/notes.ts");
-  const src = readFileSync(routes, "utf8");
   // keep only GET routes
-  writeFileSync(routes, src.replace(/\.(post|patch|put|delete)\(/g, ".get("));
+  for (const f of ["notes.ts", "_example.ts"]) {
+    const routes = join(dir, "src/routes", f);
+    writeFileSync(routes, readFileSync(routes, "utf8").replace(/\.(post|patch|put|delete)\(/g, ".get("));
+  }
   const r = await runChecks(dir);
   const a = r.rules.find((x) => x.name === "authz-roles")!;
   expect(a).toMatchObject({ status: "pass", passed: 0, total: 0, reason: "no write routes" });
   expect(formatReport(r)).toContain("pass  0/0 write routes (no write routes)");
 
-  const tpl = await runChecks(resolve(import.meta.dir, "../template"));
+  const tpl = await runChecks(bareTemplate());
   expect(tpl.rules.find((x) => x.name === "authz-roles")?.status).toBe("UNPROVEN");
 }, T);

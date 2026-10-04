@@ -6,7 +6,7 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import { formatReport, runChecks, runTests } from "./runner.ts";
-import { isSecretPath, type Check, type Message } from "./sdk.ts";
+import { isSecretPath, type Check, type Measured, type Message } from "./sdk.ts";
 
 export type Mode = "actual" | "baseline";
 export const WINDOW = 3; // most recent turns (assistant message + what answered it) kept verbatim
@@ -70,7 +70,8 @@ export function projectMap(root: string, libDir = resolve("template/src/lib")): 
     return `  ${f.replace(/\.ts$/, "")}: ${exported.map(sig).join("; ")}`;
   });
   const files = sourceFiles(root).filter((f) => !f.startsWith("src/lib/"));
-  const map = `Project files: ${files.join(", ")}\nsrc/lib helpers (import, don't rewrite):\n${sigs.join("\n")}`;
+  const example = files.includes("src/routes/_example.ts") ? "\nsrc/routes/_example.ts + test/_example.test.ts: copy this pattern" : "";
+  const map = `Project files: ${files.join(", ")}${example}\nsrc/lib helpers (import, don't rewrite):\n${sigs.join("\n")}`;
   return map.length > MAP_CHARS ? map.slice(0, MAP_CHARS - 1) + "…" : map;
 }
 
@@ -95,11 +96,12 @@ export const changedSince = (root: string, before: Map<string, number>) =>
   [...mtimes(root)].filter(([f, t]) => before.get(f) !== t).map(([f]) => f);
 
 // The harness's own account of where things stand: changed files, a fresh test run, a fresh check run.
-export async function stateNote(root: string, taskFields: Record<string, unknown>, changed: string[]): Promise<string> {
+export async function stateNote(root: string, taskFields: Record<string, unknown>, changed: string[]): Promise<{ text: string; measured: Measured }> {
   const t = runTests(root);
   const fails = t.failures.filter((l) => l.startsWith("FAIL "));
   const report = await runChecks(root, taskFields);
   const red = formatReport(report).split("\n").filter((l) => /\b(FAIL|UNPROVEN)\b/.test(l));
+  const measured = { testsOk: t.ok, testFailures: t.failures, verdict: report.verdict, failingChecks: red };
   const note = [
     "State (written by the harness from disk; earlier turns were dropped):",
     `files changed: ${changed.join(", ") || "none"}`,
@@ -108,7 +110,7 @@ export async function stateNote(root: string, taskFields: Record<string, unknown
     `checks: verdict ${report.verdict}%`,
     ...red.map((l) => `  ${l}`),
   ].join("\n");
-  return note.length > NOTE_CHARS ? note.slice(0, NOTE_CHARS - 1) + "…" : note;
+  return { text: note.length > NOTE_CHARS ? note.slice(0, NOTE_CHARS - 1) + "…" : note, measured };
 }
 
 // Indices where turns start (each assistant message). Turn = assistant message + the tool/user messages after it.

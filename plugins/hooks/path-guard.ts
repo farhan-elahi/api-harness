@@ -1,6 +1,8 @@
 // Every path a tool touches stays inside the project root and off secret files (.env*, *.pem, *.key, .git/).
+// Writes also stay out of node_modules/.
 import { isAbsolute, relative, resolve } from "node:path";
 import { allow, block, defineHook, isSecretPath } from "../../core/sdk.ts";
+import { isWrite } from "./_write.ts";
 
 export default defineHook({
   name: "path-guard",
@@ -11,6 +13,8 @@ export default defineHook({
       const rel = relative(root, resolve(root, p));
       if (rel.startsWith("..") || isAbsolute(rel)) return block(`${p} is outside the project root`);
       if (isSecretPath(rel)) return block(`${p} is a secret file`);
+      if (isWrite(call) && rel.split(/[\\/]/).includes("node_modules"))
+        return block(`${p} is under node_modules/; dependencies are not edited`);
     }
     return allow;
   },

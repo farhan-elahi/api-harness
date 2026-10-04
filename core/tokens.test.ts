@@ -54,7 +54,7 @@ test("state note is built from disk: changed files, a fresh test run, a fresh ch
   writeFileSync(join(root, "src/extra.ts"), "export const x = 1;\n");
   const changed = changedSince(root, since);
   expect(changed).toEqual(["src/extra.ts"]);
-  const note = await stateNote(root, {}, changed);
+  const { text: note } = await stateNote(root, {}, changed);
   const t = runTests(root);
   expect(note).toContain("files changed: src/extra.ts");
   expect(note).toContain(`tests: ${t.total} pass`);
@@ -71,11 +71,19 @@ test("run: the model sees the window + the harness state note once turns are dro
   expect(last.filter((m) => m.role === "assistant").map((m) => m.raw)).toEqual(SCRIPT.slice(1, 4).map((s) => s.raw));
 }, T);
 
+test("run: hooks can add a line to the state note (rebuilt every turn)", async () => {
+  const d = scripted(SCRIPT);
+  const hooks = [{ name: "n", state: ({ turn, measured }: { turn: number; measured: { verdict: number } }) => `Next: turn ${turn}, verdict ${measured.verdict}%` }];
+  await run({ task: taskFile(), driver: d, repo: assemble("good-api"), hooks, tokensDir: tmp("harness-tokens-") });
+  expect((d.seen.at(-1)![0] as { text: string }).text).toContain("Next: turn 5, verdict 100%");
+}, T);
+
 test("actual fixed cost (system prompt + tool definitions) is under 1,000 tokens", async () => {
   const d = scripted([{ text: "done", toolCalls: [] }]);
   const r = await run({ task: taskFile(), driver: d, repo: assemble("good-api"), hooks: [], tokensDir: tmp("harness-tokens-") });
   expect(r.fixed_cost.total).toBeLessThan(1000);
   expect(d.systems[0]).toContain("function respond<S extends z.ZodType>"); // map generated from template/src/lib
+  expect(d.systems[0]).toContain("src/routes/_example.ts + test/_example.test.ts: copy this pattern");
 }, T);
 
 test("token report has the right shape, cache reads shown separately and inside input", async () => {

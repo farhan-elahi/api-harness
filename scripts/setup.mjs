@@ -20,6 +20,10 @@ step("Dependencies");
 if (!run("bun", ["install"])) fail("bun install failed");
 if (existsSync("template/package.json") && !run("bun", ["install"], { cwd: "template" })) fail("bun install in template/ failed");
 
+step("harness command");
+if (run("npm", ["link"])) console.log("✔ harness is on your PATH (npm link)");
+else console.log("⚠ npm link failed; use bun harness ... instead");
+
 step("git / gh");
 for (const [cmd, why] of [["git", "needed to ship branches"], ["gh", "needed to open PRs"]])
   console.log(has(cmd) ? `✔ ${cmd}` : `⚠ ${cmd} not found (${why}); runs still work without it`);
@@ -36,5 +40,5 @@ if (!run("bun", ["run", "typecheck"])) fail("typecheck failed");
 console.log(`
 ✔ Setup complete. Next:
   1. Put your API key(s) in .env (ANTHROPIC_API_KEY for --driver claude).
-  2. bun harness run tasks/notes.yaml --driver claude
+  2. harness run tasks/notes.yaml --driver claude
   3. Output lands in generated/<task>/, logs in runs/<id>/.`);

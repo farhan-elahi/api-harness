@@ -76,7 +76,15 @@ export type HookContext = {
   output?: string; // afterTool: what the tool returned
 };
 type HookFn = (ctx: HookContext) => HookResult | void | Promise<HookResult | void>;
-export type Hook = { name: string; beforeTool?: HookFn; afterTool?: HookFn; beforeStop?: HookFn };
+// What the harness last measured (fresh test + check run), handed to `state` so hooks don't rerun them.
+export type Measured = { testsOk: boolean; testFailures: string[]; verdict: number; failingChecks: string[] };
+export type Hook = {
+  name: string;
+  beforeTool?: HookFn;
+  afterTool?: HookFn;
+  beforeStop?: HookFn;
+  state?: (ctx: HookContext & { measured: Measured }) => string | void; // a line appended to the state note
+};
 export const defineHook = (h: Hook): Hook => h;
 
 // Throw from a check that cannot run. It prints UNPROVEN and blocks a 100% verdict.
