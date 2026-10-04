@@ -1,4 +1,5 @@
 # Build Plan: API Harness for TypeScript REST APIs
+> **Note:** this is the original build plan, written before the build. README.md and docs/design.md are authoritative for what was actually built; where they differ from this plan (e.g. no plugins/registry.yaml, transcripts in runs/<id>/, driver `send(system, messages, tools)`), they win.
 **Demo domain:** TaskFlow, a mini Jira (workspaces, projects, tasks)
 **Deadline:** Sun 4 Oct 2026, 11:59 PM PKT. Tag the commit. No force-push after.
 
