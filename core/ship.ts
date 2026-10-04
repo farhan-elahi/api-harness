@@ -69,9 +69,11 @@ export type ShipOptions = {
   extra?: string[]; // other files of this run to include (e.g. its token report); only if inside the repo
   gh?: string; // gh binary (tests pass a stub)
   now?: Date;
+  skip?: boolean; // --no-ship: touch nothing
 };
 
 export function ship(o: ShipOptions): ShipResult {
+  if (o.skip) return { status: "skipped", message: "ship skipped (--no-ship)" };
   const repo = repoOf(o.root);
   if (!repo) return { status: "UNPROVEN", message: `UNPROVEN not shipped: ${o.root} is not in a git repo` };
   const base = out(repo, "rev-parse", "--abbrev-ref", "HEAD");

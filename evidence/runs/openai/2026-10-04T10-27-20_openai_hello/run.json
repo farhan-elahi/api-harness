@@ -1,0 +1,25 @@
+{
+  "run_id": "2026-10-04T10-27-20_openai_hello",
+  "driver": "openai",
+  "task": "tasks/hello.yaml",
+  "root": "/Users/farhanelahi/Documents/api-harness/generated/hello-openai",
+  "turns": [
+    {
+      "turn": 1,
+      "input_tokens": 340,
+      "output_tokens": 50
+    },
+    {
+      "turn": 2,
+      "input_tokens": 443,
+      "output_tokens": 97
+    },
+    {
+      "turn": 3,
+      "input_tokens": 574,
+      "output_tokens": 18
+    }
+  ],
+  "final": "Created `src/greet.ts` and `README.md` as requested.",
+  "completed": true
+}

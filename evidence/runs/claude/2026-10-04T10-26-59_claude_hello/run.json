@@ -1,0 +1,25 @@
+{
+  "run_id": "2026-10-04T10-26-59_claude_hello",
+  "driver": "claude",
+  "task": "tasks/hello.yaml",
+  "root": "/Users/farhanelahi/Documents/api-harness/generated/hello-claude",
+  "turns": [
+    {
+      "turn": 1,
+      "input_tokens": 776,
+      "output_tokens": 26
+    },
+    {
+      "turn": 2,
+      "input_tokens": 811,
+      "output_tokens": 205
+    },
+    {
+      "turn": 3,
+      "input_tokens": 1100,
+      "output_tokens": 63
+    }
+  ],
+  "final": "I created `src/greet.ts`, which exports `greet(name)` returning `\"Hello, <name>!\"`, and a one-line `README.md` describing it; nothing was compiled or run.",
+  "completed": true
+}

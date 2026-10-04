@@ -1,0 +1,5 @@
+{"turn":1,"text":"","toolCalls":[{"id":"toolu_01Aqy3PFaCNjhVzrChi3wNaV","name":"list_files","input":{}}],"usage":{"input":776,"output":26},"stop":"tool"}
+{"turn":1,"results":[{"id":"toolu_01Aqy3PFaCNjhVzrChi3wNaV","output":"(empty)"}]}
+{"turn":2,"text":"","toolCalls":[{"id":"toolu_0176A9nhWtvMQXUzhuLxSD2E","name":"write_file","input":{"path":"src/greet.ts","content":"export function greet(name: string): string {\n  return `Hello, ${name}!`;\n}\n"}},{"id":"toolu_013ebZxEihD5uToiabgHTfcB","name":"write_file","input":{"path":"README.md","content":"`src/greet.ts` exports `greet(name)`, which returns the greeting \"Hello, <name>!\".\n"}}],"usage":{"input":811,"output":205},"stop":"tool"}
+{"turn":2,"results":[{"id":"toolu_0176A9nhWtvMQXUzhuLxSD2E","output":"wrote src/greet.ts (4 lines)"},{"id":"toolu_013ebZxEihD5uToiabgHTfcB","output":"wrote README.md (2 lines)"}]}
+{"turn":3,"text":"I created `src/greet.ts`, which exports `greet(name)` and returns `Hello, <name>!`, plus a one-line `README.md` describing it; the project was empty, and I haven't compiled or run anything.","toolCalls":[],"usage":{"input":1100,"output":72},"stop":"end"}

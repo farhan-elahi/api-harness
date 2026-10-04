@@ -83,6 +83,16 @@ test("ship: gh missing or logged out -> UNPROVEN with a clear message, never shi
   expect(readFileSync(`${b.gh}.log`, "utf8")).not.toContain("pr create");
 });
 
+test("ship --no-ship: skipped, no branch, no commit, gh never called", () => {
+  const r = repo();
+  writeFileSync(join(r.api, "src/a.ts"), "export const a = 4;\n");
+  expect(ship(opts(r, { skip: true }))).toEqual({ status: "skipped", message: "ship skipped (--no-ship)" });
+  expect(git(r.dir, "branch", "--show-current")).toBe("main");
+  expect(git(r.dir, "rev-list", "--count", "HEAD")).toBe("1");
+  expect(git(r.dir, "status", "--porcelain")).toContain("api/src/a.ts");
+  expect(existsSync(`${r.gh}.log`)).toBe(false);
+});
+
 test("secret scan: catches key shapes, ignores short look-alikes", () => {
   const keys = [KEY, ["sk-", "ant-", "x".repeat(40)].join(""), ["AI", "za", "b".repeat(35)].join(""), ["AK", "IA", "ABCDEFGHIJKLMNOP"].join("")];
   expect(keys.every((k) => scanText("f", k).length > 0)).toBe(true);
