@@ -52,6 +52,26 @@ export type Check = {
 };
 export const defineCheck = (c: Check): Check => c;
 
+// Hooks run around every tool call and before the agent may finish. Allow, block (reason goes back to the
+// model), or stop (ends the run as failed). Hooks run in filename order; the first non-allow wins.
+export type HookResult = { allow: true } | { block: string } | { stop: string };
+export const allow: HookResult = { allow: true };
+export const block = (reason: string): HookResult => ({ block: reason });
+export const stop = (reason: string): HookResult => ({ stop: reason });
+export type HookContext = {
+  root: string; // project dir the agent works in
+  runDir: string; // runs/<id>/ — hooks may record evidence here
+  task: Record<string, unknown>; // task file fields
+  turn: number;
+  usage: Usage; // tokens used so far this run
+  limits: { maxTurns?: number; maxTokens?: number }; // from CLI (wins) or task
+  call?: ToolCall; // beforeTool / afterTool
+  output?: string; // afterTool: what the tool returned
+};
+type HookFn = (ctx: HookContext) => HookResult | void | Promise<HookResult | void>;
+export type Hook = { name: string; beforeTool?: HookFn; afterTool?: HookFn; beforeStop?: HookFn };
+export const defineHook = (h: Hook): Hook => h;
+
 // Throw from a check that cannot run. It prints UNPROVEN and blocks a 100% verdict.
 export class Unproven extends Error {}
 // Throw when the rule does not apply to this API (e.g. task opts out). Prints n/a; left out of the verdict.

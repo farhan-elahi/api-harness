@@ -1,5 +1,7 @@
 // Deterministic standards run: every plugin in plugins/checks and plugins/validators, one line per rule, then a verdict.
-import { existsSync, readdirSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, realpathSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join, relative, resolve } from "node:path";
 import { Project } from "ts-morph";
 import { loadPlugins } from "./loader.ts";
@@ -67,4 +69,26 @@ export function formatReport(r: Report): string {
         : x.failures.map((f) => `${x.name.padEnd(w)}FAIL  ${f.file}:${f.line} ${f.message}`),
   );
   return [...lines, `${"verdict".padEnd(w)}${r.verdict}%`].join("\n");
+}
+
+// Runs the API's own Vitest suite (optionally just some files). Short result: one line per failure.
+export type TestRun = { ok: boolean; total: number; failed: string[]; failures: string[] };
+export function runTests(apiDir: string, files: string[] = []): TestRun {
+  const dir = existsSync(apiDir) ? realpathSync(apiDir) : resolve(apiDir); // vitest reports real paths (/var -> /private/var)
+  const vitest = join(dir, "node_modules/.bin/vitest");
+  if (!existsSync(vitest)) return { ok: false, total: 0, failed: [], failures: ["UNPROVEN no vitest in node_modules/.bin"] };
+  const out = join(mkdtempSync(join(tmpdir(), "harness-vitest-")), "r.json");
+  const run = spawnSync(vitest, ["run", "--reporter=json", `--outputFile=${out}`, ...files], { cwd: dir, encoding: "utf8", timeout: 300_000 });
+  if (!existsSync(out)) return { ok: false, total: 0, failed: [], failures: [`UNPROVEN vitest did not report: ${(run.stderr || run.stdout).trim().split("\n")[0]}`] };
+  type R = { numTotalTests: number; testResults: { name: string; status: string; message: string; assertionResults: { fullName: string; status: string; failureMessages: string[] }[] }[] };
+  const r = JSON.parse(readFileSync(out, "utf8")) as R;
+  const first = (s: string | undefined) => (s ?? "").replace(/\x1b\[[0-9;]*m/g, "").trim().split("\n")[0];
+  const failed = r.testResults.filter((t) => t.status === "failed").map((t) => relative(dir, t.name));
+  const failures = r.testResults.flatMap((t) => {
+    const file = relative(dir, t.name);
+    const asserts = t.assertionResults.filter((a) => a.status === "failed").map((a) => `FAIL ${file} > ${a.fullName}: ${first(a.failureMessages[0])}`);
+    return asserts.length ? asserts : t.status === "failed" ? [`FAIL ${file}: ${first(t.message)}`] : [];
+  });
+  if (r.numTotalTests === 0 && !failures.length) failures.push("UNPROVEN no tests ran");
+  return { ok: failures.length === 0, total: r.numTotalTests, failed, failures };
 }
