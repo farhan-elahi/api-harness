@@ -1,0 +1,10 @@
+auth              pass  4/4 routes
+authz-roles       pass  2/2 write routes
+no-console-log    pass  12/12 files
+problem-json      pass  15/15 error paths
+rest-conventions  pass  5/5 routes
+tsc-strict        pass  16/16 files
+zod-boundary      pass  4/4 handlers
+explicit-columns  pass  3/3 queries
+tenant-isolation  pass  5/5 queries
+verdict           100%
