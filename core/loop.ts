@@ -69,6 +69,7 @@ export async function run(opts: RunOptions) {
     if (key !== state.key) state = { key, text: await stateNote(root, task.fields, changed) };
     return state.text;
   };
+  let retries = 0;
   const recent: string[] = []; // loop guard: signatures of the last replies
   const LOOP = 3;
   const turns: TurnTokens[] = [];
@@ -96,6 +97,8 @@ export async function run(opts: RunOptions) {
     usage.input += reply.usage.input;
     usage.output += reply.usage.output;
     turns.push(turnTokens(turn, reply.usage));
+    for (const r of reply.retries ?? []) log({ turn, retry: r }); // retries are part of this turn, not extra turns
+    retries += reply.retries?.length ?? 0;
     messages.push({ role: "assistant", text: reply.text, toolCalls: reply.toolCalls, raw: reply.raw });
     log({ turn, text: reply.text, toolCalls: reply.toolCalls, usage: reply.usage, stop: reply.stop });
     console.log(`turn ${turn}: in=${reply.usage.input} out=${reply.usage.output} ${reply.toolCalls.map((c) => c.name).join(", ") || "(no tools)"}`);
@@ -148,7 +151,7 @@ export async function run(opts: RunOptions) {
   const status = failure ? "failed" : "done";
   const tokens = tokenReport({ run_id: runId, driver: driverName, task: task.path, task_hash: taskHash(task.text), mode }, turns);
   const tokensPath = writeTokens(tokens, opts.tokensDir);
-  const summary = { run_id: runId, driver: driverName, task: task.path, mode, root, turns, usage, fixed_cost: fixed, final, status, reason: failure, completed: !failure, tokens: tokensPath };
+  const summary = { run_id: runId, driver: driverName, task: task.path, mode, root, turns, usage, fixed_cost: fixed, retries, final, status, reason: failure, completed: !failure, tokens: tokensPath };
   writeFileSync(join(runDir, "run.json"), redact(JSON.stringify(summary, null, 2)));
   return { ...summary, report: tokens };
 }
